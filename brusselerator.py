@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from integrator import Integrator
 
 DEFAULT_PARAMS = {
     "A": 1.0,
@@ -9,7 +10,7 @@ DEFAULT_PARAMS = {
 }
 
 
-class Brusselerator(object):
+class Brusselerator(Integrator):
     """
     Brusselerator is a simpler version of Model G that is either globally critical or sub-critical.
 
@@ -19,45 +20,12 @@ class Brusselerator(object):
     def __init__(self, concentration_X, concentration_Y, dx, params=None, fixed_point_iterations=3, iterations=2):
         if concentration_X.shape != concentration_Y.shape:
             raise ValueError("Concentration shapes must match")
-        dims = len(concentration_X.shape)
-        if dims == 1:
-            kernel = [1, -2, 1]
-            self.conv = tf.nn.conv1d
-        elif dims == 2:
-            kernel = [
-                0, 1, 0,
-                1, -4, 1,
-                0, 1, 0,
-            ]
-            self.conv = tf.nn.conv2d
-        elif dims == 3:
-            kernel = [
-                0, 0, 0,
-                0, 1, 0,
-                0, 0, 0,
-
-                0, 1, 0,
-                1, -6, 1,
-                0, 1, 0,
-
-                0, 0, 0,
-                0, 1, 0,
-                0, 0, 0,
-            ]
-            self.conv = tf.nn.conv3d
-        else:
-            raise ValueError("Only up to 3D supported")
-
-        self.dx = dx
-        self.kernel = tf.reshape(tf.constant(np.array(kernel) * dx*dx, dtype="float64"), [3]*dims + [1, 1])
-        self.strides = [1] * (dims+2)
-        self.pads = tf.constant([[0, 0]] + [[1, 1]]*dims + [[0, 0]])
+        super().__init__(dx=dx, dt=dx*0.1, dims=len(concentration_X.shape))
 
         self.nshape = concentration_X.shape
         self.cshape = [1] + list(concentration_X.shape) + [1]
         self.concentration_X = tf.reshape(tf.constant(concentration_X, dtype="float64"), self.cshape)
         self.concentration_Y = tf.reshape(tf.constant(concentration_Y, dtype="float64"), self.cshape)
-        self.dt = 0.1 * dx
         self.params = params or DEFAULT_PARAMS
         self.fixed_point_iterations = fixed_point_iterations
         self.iterations = iterations
