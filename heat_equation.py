@@ -13,6 +13,9 @@ class HeatEquation(object):
         self.u = tf.constant(u)
 
         l = u.shape[-1]
+        if any(s != l for s in u.shape):
+            raise ValueError('Only square grids supported')
+
         ratio = 2*np.pi / (l*self.dx)
         delta = self.dt * ratio**2
         omega2 = (l//2 - tf.abs(tf.range(l) - l//2))**2
