@@ -15,7 +15,6 @@ class WaveEquation(object):
         if any(s != l for s in u.shape):
             raise ValueError('Only square grids supported')
 
-
         ratio = 2*np.pi / (l*self.dx)
         delta = self.dt * ratio**2
         omega = l//2 - tf.abs(tf.range(l) - l//2)
