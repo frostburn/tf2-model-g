@@ -5,7 +5,7 @@ DEFAULT_PARAMS = {
     "A": 3.42,
     "B": 13.5,
     "k2": 1.0,
-    "k_2": 0.1,
+    "k-2": 0.1,
     "k5": 0.9,
     "Dx": 1.0,
     "Dy": 2.0,
@@ -13,7 +13,7 @@ DEFAULT_PARAMS = {
 
 
 def steady_state(params=DEFAULT_PARAMS):
-    G0 = params["A"]*(params["k5"] + params["k_2"])/(params["k2"]*params["k5"])
+    G0 = params["A"]*(params["k5"] + params["k-2"])/(params["k2"]*params["k5"])
     X0 = params["A"]/params["k5"]
     Y0 = params["B"]*params["k5"]/params["A"]
     return G0, X0, Y0
@@ -90,7 +90,7 @@ class ModelG(object):
             new_X = con_X
             new_Y = con_Y
             for _ in range(self.fixed_point_iterations):
-                gx_flow = self.params["k_2"]*new_X - self.params["k2"]*new_G
+                gx_flow = self.params["k-2"]*new_X - self.params["k2"]*new_G
                 xy_flow = new_X*new_X*new_Y - self.params["B"]*new_X
                 v_G = self.params["A"] + gx_flow
                 v_X = xy_flow - gx_flow - self.params["k5"] * new_X
