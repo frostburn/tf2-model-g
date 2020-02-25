@@ -30,14 +30,16 @@ class WaveModelG(object):
 
     # We use a scheme where the concentration is broken into positive and negative "gyrating" components.
     # This so that we get stable simulation of the wave equation portion.
-    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, fixed_point_iterations=3):
+    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, fixed_point_iterations=3, source_functions=None):
         if concentration_X.shape != concentration_Y.shape or concentration_X.shape != concentration_G.shape:
             raise ValueError("Concentration shapes must match")
         self.dx = dx
         self.dt = dx*0.1
+        self.t = 0
 
         self.params = params or DEFAULT_PARAMS
         self.fixed_point_iterations = fixed_point_iterations
+        self.source_functions = source_functions or {}
 
         l = concentration_X.shape[-1]
         if any(s != l for s in concentration_X.shape):
@@ -133,6 +135,17 @@ class WaveModelG(object):
         values = self.wave_diffusion_integrator(self.positive_G, self.negative_G, self.positive_X, self.negative_X, self.positive_Y, self.negative_Y)
         values = self.reaction_integrator(*values)
         self.positive_G, self.negative_G, self.positive_X, self.negative_X, self.positive_Y, self.negative_Y = values
+        zero = lambda t: 0
+        source_G = self.source_functions.get('G', zero)(self.t)
+        source_X = self.source_functions.get('X', zero)(self.t)
+        source_Y = self.source_functions.get('Y', zero)(self.t)
+        self.positive_G += 0.5*self.dt * source_G
+        self.negative_G += 0.5*self.dt * source_G
+        self.positive_X += 0.5*self.dt * source_X
+        self.negative_X += 0.5*self.dt * source_X
+        self.positive_Y += 0.5*self.dt * source_Y
+        self.negative_Y += 0.5*self.dt * source_Y
+        self.t += self.dt
 
     def numpy(self):
         G = self.positive_G + self.negative_G

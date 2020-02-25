@@ -24,17 +24,19 @@ class ModelG(object):
     Model G Reaction Diffusion system
     """
 
-    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, fixed_point_iterations=3):
+    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, fixed_point_iterations=3, source_functions=None):
         if concentration_X.shape != concentration_Y.shape or concentration_X.shape != concentration_G.shape:
             raise ValueError("Concentration shapes must match")
         self.dx = dx
         self.dt = 0.1 * dx
+        self.t = 0
 
         self.concentration_G = tf.constant(concentration_G, dtype="float64")
         self.concentration_X = tf.constant(concentration_X, dtype="float64")
         self.concentration_Y = tf.constant(concentration_Y, dtype="float64")
         self.params = params or DEFAULT_PARAMS
         self.fixed_point_iterations = fixed_point_iterations
+        self.source_functions = source_functions or {}
 
         l = concentration_X.shape[-1]
         if any(s != l for s in concentration_X.shape):
@@ -111,6 +113,14 @@ class ModelG(object):
         self.concentration_G, self.concentration_X, self.concentration_Y = values
         values = self.reaction_integrator(self.concentration_G, self.concentration_X, self.concentration_Y)
         self.concentration_G, self.concentration_X, self.concentration_Y = values
+        zero = lambda t: 0
+        source_G = self.source_functions.get('G', zero)(self.t)
+        source_X = self.source_functions.get('X', zero)(self.t)
+        source_Y = self.source_functions.get('Y', zero)(self.t)
+        self.concentration_G += self.dt * source_G
+        self.concentration_X += self.dt * source_X
+        self.concentration_Y += self.dt * source_Y
+        self.t += self.dt
 
     def numpy(self):
         return (
