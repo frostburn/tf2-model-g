@@ -251,8 +251,86 @@ def nucleation_and_motion_in_G_gradient_2D():
     pylab.show()
 
 
+def random_2D():
+    r = np.random.randn
+    params = {
+        "A": 2 + r()*0.1,
+        "B": 10 + r(),
+        "k2": 1.0 + 0.1*r(),
+        "k-2": 0.1 + 0.01*r(),
+        "k5": 0.9 + 0.1*r(),
+        "Dx": 1.0 + 0.1*r(),
+        "Dy": 2.0 + 0.1*r(),
+    }
+    print(params)
+
+    x = np.linspace(-16, 16, 256)
+    dx = x[1] - x[0]
+    x, y = np.meshgrid(x, x)
+
+    def source_G(t):
+        center = np.exp(-0.5*(t-20)**2) * 10
+        gradient = (1+np.tanh(t-40)) * 0.0005
+        print("t = {}\tcenter potential = {}\tx-gradient = {}".format(t, center, gradient))
+        return -np.exp(-0.5*(x*x+y*y)) * center + x * gradient
+
+    source_functions = {
+        'G': source_G,
+    }
+
+    model_g = ModelG(
+        bl_noise(x.shape)*0.01,
+        bl_noise(x.shape)*0.01,
+        bl_noise(x.shape)*0.01,
+        dx,
+        params,
+        source_functions=source_functions,
+    )
+
+    def get_data():
+        G, X, Y = model_g.numpy()
+        x_scale = 0.1
+        y_scale = 0.1
+        return (
+            G[64],
+            X[64] * x_scale,
+            Y[64] * y_scale,
+        )
+
+    G, X, Y = get_data()
+    plots = []
+    plots.extend(pylab.plot(x[0], G))
+    plots.extend(pylab.plot(x[0], X))
+    plots.extend(pylab.plot(x[0], Y))
+    pylab.ylim(-0.5, 0.5)
+
+    def update(frame):
+        model_g.step()
+        G, X, Y = get_data()
+        plots[0].set_ydata(G)
+        plots[1].set_ydata(X)
+        plots[2].set_ydata(Y)
+        return plots
+
+    FuncAnimation(pylab.gcf(), update, frames=range(100), init_func=lambda: plots, blit=True, repeat=True, interval=20)
+    pylab.show()
+
+    G, X, Y = model_g.numpy()
+    plots = [pylab.imshow(X)]
+
+    def update(frame):
+        model_g.step()
+        G, X, Y = model_g.numpy()
+        plots[0].set_data(X)
+        return plots
+
+    FuncAnimation(pylab.gcf(), update, frames=range(100), init_func=lambda: plots, blit=True, repeat=True, interval=20)
+    pylab.show()
+
+
 if __name__ == '__main__':
+    random_2D()
     # nucleation_and_motion_in_G_gradient_1D()
-    nucleation_and_motion_in_G_gradient_2D()
+    # nucleation_and_motion_in_G_gradient_2D()
     # self_stabilizing_soliton_2D()
     # self_stabilizing_soliton_3D()
