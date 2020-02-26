@@ -19,17 +19,17 @@ def integrate_model_g_centered(a0, b0, c0, t, A, B, k2, k_2, k5):
     The coefficients have been derived using a computer algebra system by developing the solution into a series with respect to t around G,X,Y == a0,b0,c0.
     """
     a1 = -a0*k2 + b0*k_2
-    b1 = b0**2*c0 + B*b0**2*k5/A + B*b0 + a0*k2 + 2*A*b0*c0/k5 - b0*k5 - b0*k_2 + A**2*c0/k5**2
     c1 = -b0**2*c0 - B*b0**2*k5/A - B*b0 - 2*A*b0*c0/k5 - A**2*c0/k5**2
+    b1 = -c1 + a0*k2 - b0*k5 - b0*k_2
     a2 = -1/2*a1*k2 + 1/2*b1*k_2
-    b2 = b0*b1*c0 + 1/2*b0**2*c1 + B*b0*b1*k5/A + 1/2*B*b1 + 1/2*a1*k2 + A*b1*c0/k5 + A*b0*c1/k5 - 1/2*b1*k5 - 1/2*b1*k_2 + 1/2*A**2*c1/k5**2
     c2 = -b0*b1*c0 - 1/2*b0**2*c1 - B*b0*b1*k5/A - 1/2*B*b1 - A*b1*c0/k5 - A*b0*c1/k5 - 1/2*A**2*c1/k5**2
+    b2 = -c2 + 1/2*a1*k2 - 1/2*b1*k5 - 1/2*b1*k_2
     a3 = -1/3*a2*k2 + 1/3*b2*k_2
-    b3 = 1/3*b1**2*c0 + 2/3*b0*b2*c0 + 2/3*b0*b1*c1 + 1/3*b0**2*c2 + 1/3*B*b1**2*k5/A + 2/3*B*b0*b2*k5/A + 1/3*B*b2 + 1/3*a2*k2 + 2/3*A*b2*c0/k5 + 2/3*A*b1*c1/k5 + 2/3*A*b0*c2/k5 - 1/3*b2*k5 - 1/3*b2*k_2 + 1/3*A**2*c2/k5**2
     c3 = -1/3*b1**2*c0 - 2/3*b0*b2*c0 - 2/3*b0*b1*c1 - 1/3*b0**2*c2 - 1/3*B*b1**2*k5/A - 2/3*B*b0*b2*k5/A - 1/3*B*b2 - 2/3*A*b2*c0/k5 - 2/3*A*b1*c1/k5 - 2/3*A*b0*c2/k5 - 1/3*A**2*c2/k5**2
+    b3 = -c3 + 1/3*a2*k2 - 1/3*b2*k5 - 1/3*b2*k_2
     a4 = -1/4*a3*k2 + 1/4*b3*k_2
-    b4 = 1/2*b1*b2*c0 + 1/2*b0*b3*c0 + 1/4*b1**2*c1 + 1/2*b0*b2*c1 + 1/2*b0*b1*c2 + 1/4*b0**2*c3 + 1/2*B*b1*b2*k5/A + 1/2*B*b0*b3*k5/A + 1/4*B*b3 + 1/4*a3*k2 + 1/2*A*b3*c0/k5 + 1/2*A*b2*c1/k5 + 1/2*A*b1*c2/k5 + 1/2*A*b0*c3/k5 - 1/4*b3*k5 - 1/4*b3*k_2 + 1/4*A**2*c3/k5**2
     c4 = -1/2*b1*b2*c0 - 1/2*b0*b3*c0 - 1/4*b1**2*c1 - 1/2*b0*b2*c1 - 1/2*b0*b1*c2 - 1/4*b0**2*c3 - 1/2*B*b1*b2*k5/A - 1/2*B*b0*b3*k5/A - 1/4*B*b3 - 1/2*A*b3*c0/k5 - 1/2*A*b2*c1/k5 - 1/2*A*b1*c2/k5 - 1/2*A*b0*c3/k5 - 1/4*A**2*c3/k5**2
+    b4 = -c4 + 1/4*a3*k2 - 1/4*b3*k5 - 1/4*b3*k_2
 
     return (
         a0 + t * (a1 + t * (a2 + t * (a3 + t*a4))),
