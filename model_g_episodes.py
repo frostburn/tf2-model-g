@@ -2,15 +2,14 @@ import numpy as np
 from util import bl_noise
 import pylab
 from matplotlib.animation import FuncAnimation
-from model_g import ModelG, steady_state
+from model_g import ModelG
 
 def self_stabilizing_soliton_2D():
-    # TODO: Needs some parameter fiddling
     params = {
-        "A": 3.42,
-        "B": 13.5,
+        "A": 4.2,
+        "B": 18,
         "k2": 1.0,
-        "k-2": 0.1,
+        "k-2": 0.2,
         "k5": 0.9,
         "Dx": 1.0,
         "Dy": 2.0,
@@ -20,25 +19,23 @@ def self_stabilizing_soliton_2D():
     dx = x[1] - x[0]
     x, y = np.meshgrid(x, x)
 
-    G0, X0, Y0 = steady_state(params)
-
     r2 = x*x+y*y
     model_g = ModelG(
-        G0 - np.exp(-0.1*r2)*1.0,
-        X0 - np.exp(-r2)*0.01,
-        Y0 + np.exp(-r2)*0.01 + bl_noise(x.shape)*0.02,
+        -np.exp(-0.1*r2)*1.0,
+        np.exp(-r2)*0.01,
+        np.exp(-r2)*0.01 + bl_noise(x.shape)*0.02,
         dx,
         params,
     )
 
     def get_data():
         G, X, Y = model_g.numpy()
-        x_scale = 0.5
-        y_scale = 0.04
+        x_scale = 0.2
+        y_scale = 0.1
         return (
-            G[64] - G0,
-            (X[64] - X0) * x_scale,
-            (Y[64] - Y0) * y_scale,
+            G[64],
+            X[64] * x_scale,
+            Y[64] * y_scale,
         )
 
     G, X, Y = get_data()
@@ -46,7 +43,7 @@ def self_stabilizing_soliton_2D():
     plots.extend(pylab.plot(x[0], G))
     plots.extend(pylab.plot(x[0], X))
     plots.extend(pylab.plot(x[0], Y))
-    pylab.ylim(-0.1, 0.1)
+    pylab.ylim(-0.03, 0.03)
 
     def update(frame):
         for _ in range(5):
@@ -80,13 +77,11 @@ def self_stabilizing_soliton_3D():
     dx = x[1] - x[0]
     x, y, z = np.meshgrid(x, x, x)
 
-    G0, X0, Y0 = steady_state(params)
-
     r2 = x*x+y*y+z*z
     model_g = ModelG(
-        G0 - np.exp(-0.1*r2)*1.0,
-        X0 - np.exp(-r2)*0.01,
-        Y0 + np.exp(-r2)*0.01 + bl_noise(x.shape)*0.02,
+        -np.exp(-0.1*r2)*1.0,
+        -np.exp(-r2)*0.01,
+        np.exp(-r2)*0.01 + bl_noise(x.shape)*0.02,
         dx,
         params,
     )
@@ -96,9 +91,9 @@ def self_stabilizing_soliton_3D():
         x_scale = 0.5
         y_scale = 0.04
         return (
-            G[64, 64] - G0,
-            (X[64, 64] - X0) * x_scale,
-            (Y[64, 64] - Y0) * y_scale,
+            G[64, 64],
+            X[64, 64] * x_scale,
+            Y[64, 64] * y_scale,
         )
 
     G, X, Y = get_data()
@@ -134,13 +129,11 @@ def nucleation_and_motion_in_G_gradient_1D():
         "k-2": 0.2,
         "k5": 0.9,
         "Dx": 1.0,
-        "Dy": 2.3,
+        "Dy": 2.225,
     }
 
     x = np.linspace(-32, 32, 256)
     dx = x[1] - x[0]
-
-    G0, X0, Y0 = steady_state(params)
 
     def source_G(t):
         print(t)
@@ -152,9 +145,9 @@ def nucleation_and_motion_in_G_gradient_1D():
 
     r2 = x*x
     model_g = ModelG(
-        G0 - np.exp(-0.1*r2)*0,
-        X0 - np.exp(-r2)*0.01*0,
-        Y0 + np.exp(-r2)*0.01*0,
+        np.exp(-0.1*r2)*0,
+        np.exp(-r2)*0.01*0,
+        np.exp(-r2)*0.01*0,
         dx,
         params,
         source_functions=source_functions,
@@ -165,9 +158,9 @@ def nucleation_and_motion_in_G_gradient_1D():
         x_scale = 0.1
         y_scale = 0.1
         return (
-            G - G0,
-            (X - X0) * x_scale,
-            (Y - Y0) * y_scale,
+            G,
+            X * x_scale,
+            Y * y_scale,
         )
 
     G, X, Y = get_data()
@@ -199,14 +192,12 @@ def nucleation_and_motion_in_G_gradient_2D():
         "k-2": 0.1,
         "k5": 0.9,
         "Dx": 1.0,
-        "Dy": 2.0,
+        "Dy": 1.95,
     }
 
     x = np.linspace(-16, 16, 128)
     dx = x[1] - x[0]
     x, y = np.meshgrid(x, x)
-
-    G0, X0, Y0 = steady_state(params)
 
     def source_G(t):
         print(t)
@@ -218,9 +209,9 @@ def nucleation_and_motion_in_G_gradient_2D():
 
     r2 = x*x+y*y
     model_g = ModelG(
-        G0 - np.exp(-0.1*r2)*0,
-        X0 - np.exp(-r2)*0.01*0,
-        Y0 + np.exp(-r2)*0.01*0,
+        -np.exp(-0.1*r2)*0,
+        -np.exp(-r2)*0.01*0,
+        np.exp(-r2)*0.01*0,
         dx,
         params,
         source_functions=source_functions,
@@ -231,9 +222,9 @@ def nucleation_and_motion_in_G_gradient_2D():
         x_scale = 0.1
         y_scale = 0.1
         return (
-            G[64] - G0,
-            (X[64] - X0) * x_scale,
-            (Y[64] - Y0) * y_scale,
+            G[64],
+            X[64] * x_scale,
+            Y[64] * y_scale,
         )
 
     G, X, Y = get_data()
@@ -261,6 +252,7 @@ def nucleation_and_motion_in_G_gradient_2D():
 
 
 if __name__ == '__main__':
-    nucleation_and_motion_in_G_gradient_1D()
+    # nucleation_and_motion_in_G_gradient_1D()
+    nucleation_and_motion_in_G_gradient_2D()
     # self_stabilizing_soliton_2D()
     # self_stabilizing_soliton_3D()

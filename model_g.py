@@ -12,11 +12,30 @@ DEFAULT_PARAMS = {
 }
 
 
-def steady_state(params=DEFAULT_PARAMS):
-    G0 = params["A"]*(params["k5"] + params["k-2"])/(params["k2"]*params["k5"])
-    X0 = params["A"]/params["k5"]
-    Y0 = params["B"]*params["k5"]/params["A"]
-    return G0, X0, Y0
+def integrate_model_g_centered(a0, b0, c0, t, A, B, k2, k_2, k5):
+    """
+    Integrate 0-dimensional Model G starting from a known position `t` time units ahead.
+    The system has been "centered" so that the origin becomes a fixed point.
+    The coefficients have been derived using a computer algebra system by developing the solution into a series with respect to t around G,X,Y == a0,b0,c0.
+    """
+    a1 = -a0*k2 + b0*k_2
+    b1 = b0**2*c0 + B*b0**2*k5/A + B*b0 + a0*k2 + 2*A*b0*c0/k5 - b0*k5 - b0*k_2 + A**2*c0/k5**2
+    c1 = -b0**2*c0 - B*b0**2*k5/A - B*b0 - 2*A*b0*c0/k5 - A**2*c0/k5**2
+    a2 = -1/2*a1*k2 + 1/2*b1*k_2
+    b2 = b0*b1*c0 + 1/2*b0**2*c1 + B*b0*b1*k5/A + 1/2*B*b1 + 1/2*a1*k2 + A*b1*c0/k5 + A*b0*c1/k5 - 1/2*b1*k5 - 1/2*b1*k_2 + 1/2*A**2*c1/k5**2
+    c2 = -b0*b1*c0 - 1/2*b0**2*c1 - B*b0*b1*k5/A - 1/2*B*b1 - A*b1*c0/k5 - A*b0*c1/k5 - 1/2*A**2*c1/k5**2
+    a3 = -1/3*a2*k2 + 1/3*b2*k_2
+    b3 = 1/3*b1**2*c0 + 2/3*b0*b2*c0 + 2/3*b0*b1*c1 + 1/3*b0**2*c2 + 1/3*B*b1**2*k5/A + 2/3*B*b0*b2*k5/A + 1/3*B*b2 + 1/3*a2*k2 + 2/3*A*b2*c0/k5 + 2/3*A*b1*c1/k5 + 2/3*A*b0*c2/k5 - 1/3*b2*k5 - 1/3*b2*k_2 + 1/3*A**2*c2/k5**2
+    c3 = -1/3*b1**2*c0 - 2/3*b0*b2*c0 - 2/3*b0*b1*c1 - 1/3*b0**2*c2 - 1/3*B*b1**2*k5/A - 2/3*B*b0*b2*k5/A - 1/3*B*b2 - 2/3*A*b2*c0/k5 - 2/3*A*b1*c1/k5 - 2/3*A*b0*c2/k5 - 1/3*A**2*c2/k5**2
+    a4 = -1/4*a3*k2 + 1/4*b3*k_2
+    b4 = 1/2*b1*b2*c0 + 1/2*b0*b3*c0 + 1/4*b1**2*c1 + 1/2*b0*b2*c1 + 1/2*b0*b1*c2 + 1/4*b0**2*c3 + 1/2*B*b1*b2*k5/A + 1/2*B*b0*b3*k5/A + 1/4*B*b3 + 1/4*a3*k2 + 1/2*A*b3*c0/k5 + 1/2*A*b2*c1/k5 + 1/2*A*b1*c2/k5 + 1/2*A*b0*c3/k5 - 1/4*b3*k5 - 1/4*b3*k_2 + 1/4*A**2*c3/k5**2
+    c4 = -1/2*b1*b2*c0 - 1/2*b0*b3*c0 - 1/4*b1**2*c1 - 1/2*b0*b2*c1 - 1/2*b0*b1*c2 - 1/4*b0**2*c3 - 1/2*B*b1*b2*k5/A - 1/2*B*b0*b3*k5/A - 1/4*B*b3 - 1/2*A*b3*c0/k5 - 1/2*A*b2*c1/k5 - 1/2*A*b1*c2/k5 - 1/2*A*b0*c3/k5 - 1/4*A**2*c3/k5**2
+
+    return (
+        a0 + t * (a1 + t * (a2 + t * (a3 + t*a4))),
+        b0 + t * (b1 + t * (b2 + t * (b3 + t*b4))),
+        c0 + t * (c1 + t * (c2 + t * (c3 + t*c4))),
+    )
 
 
 class ModelG(object):
@@ -87,23 +106,10 @@ class ModelG(object):
         else:
             raise ValueError('Only up to 3D supported')
 
-        def reaction_integrator(con_G, con_X, con_Y):
-            new_G = con_G
-            new_X = con_X
-            new_Y = con_Y
-            for _ in range(self.fixed_point_iterations):
-                gx_flow = self.params["k-2"]*new_X - self.params["k2"]*new_G
-                xy_flow = new_X*new_X*new_Y - self.params["B"]*new_X
-                v_G = self.params["A"] + gx_flow
-                v_X = xy_flow - gx_flow - self.params["k5"] * new_X
-                v_Y = -xy_flow
-                new_G = con_G + self.dt*v_G
-                new_X = con_X + self.dt*v_X
-                new_Y = con_Y + self.dt*v_Y
-            con_G = new_G
-            con_X = new_X
-            con_Y = new_Y
-            return con_G, con_X, con_Y
+        reaction_integrator = lambda con_G, con_X, con_Y: integrate_model_g_centered(
+            con_G, con_X, con_Y,
+            self.dt, self.params['A'], self.params['B'], self.params['k2'], self.params['k-2'], self.params['k5']
+        )
 
         self.diffusion_integrator = tf.function(diffusion_integrator)
         self.reaction_integrator = tf.function(reaction_integrator)
@@ -128,54 +134,3 @@ class ModelG(object):
             self.concentration_X.numpy(),
             self.concentration_Y.numpy()
         )
-
-
-if __name__ == '__main__':
-    from util import bl_noise
-    import pylab
-    from matplotlib.animation import FuncAnimation
-
-    x = np.linspace(-16, 16, 128)
-    dx = x[1] - x[0]
-    x, y, z = np.meshgrid(x, x, x)
-
-    G0, X0, Y0 = steady_state()
-
-    r2 = x*x+y*y+z*z
-    model_g = ModelG(
-        G0 - np.exp(-0.1*r2)*1.0,
-        X0 - np.exp(-r2)*0.01,
-        Y0 + np.exp(-r2)*0.01 + bl_noise(x.shape)*0.02,
-        dx,
-    )
-    G, X, Y = model_g.numpy()
-    plots = []
-    plots.extend(pylab.plot(z[0,0], (G - G0)[64,64]))
-    plots.extend(pylab.plot(z[0,0], (X - X0)[64,64]))
-    plots.extend(pylab.plot(z[0,0], (Y - Y0)[64,64]))
-    x_scale = 1.0
-    y_scale = 0.05
-    # s = slice(60, 80, 2)
-    # for cross_section, mu in zip(G[s]-G0, np.linspace(0, 1, 10)):
-    #     plots.extend(pylab.plot(x[0], cross_section, c=(0.25, 0.8, 0.6, 1.0-mu*0.8)))
-    # for cross_section, mu in zip((X[s]-X0)*x_scale, np.linspace(0, 1, 10)):
-    #     plots.extend(pylab.plot(x[0], cross_section, c=(0.5, 0.25, 0.6, 1.0-mu*0.8)))
-    # for cross_section, mu in zip((Y[s]-Y0)*y_scale, np.linspace(0, 1, 10)):
-    #     plots.extend(pylab.plot(x[0], cross_section, c=(0.7, 0.3, 0.1, 1.0-mu*0.8)))
-    pylab.ylim(-0.4, 0.4)
-
-    def update(frame):
-        for _ in range(5):
-            model_g.step()
-        G, X, Y = model_g.numpy()
-        plots[0].set_ydata((G - G0)[64,64])
-        plots[1].set_ydata(((X - X0)*x_scale)[64,64])
-        plots[2].set_ydata(((Y - Y0)*y_scale)[64,64])
-        return plots
-
-    FuncAnimation(pylab.gcf(), update, frames=range(100), init_func=lambda: plots, blit=True, repeat=True, interval=20)
-    pylab.show()
-
-    G, X, Y = model_g.numpy()
-    pylab.imshow(Y[64])
-    pylab.show()
