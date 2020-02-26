@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+from integrators.model_g import polynomial_order_4_centered as reaction_integrator
+
 
 DEFAULT_PARAMS = {
     "A": 3.42,
@@ -16,13 +18,6 @@ DEFAULT_PARAMS = {
 }
 
 
-def steady_state(params=DEFAULT_PARAMS):
-    G0 = params["A"]*(params["k5"] + params["k-2"])/(params["k2"]*params["k5"])
-    X0 = params["A"]/params["k5"]
-    Y0 = params["B"]*params["k5"]/params["A"]
-    return G0, X0, Y0
-
-
 class WaveModelG(object):
     """
     Model G Reaction system with travelling wave dynamics in addition to diffusion
@@ -30,7 +25,7 @@ class WaveModelG(object):
 
     # We use a scheme where the concentration is broken into positive and negative "gyrating" components.
     # This so that we get stable simulation of the wave equation portion.
-    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, fixed_point_iterations=3, source_functions=None):
+    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, source_functions=None):
         if concentration_X.shape != concentration_Y.shape or concentration_X.shape != concentration_G.shape:
             raise ValueError("Concentration shapes must match")
         self.dx = dx
@@ -38,7 +33,6 @@ class WaveModelG(object):
         self.t = 0
 
         self.params = params or DEFAULT_PARAMS
-        self.fixed_point_iterations = fixed_point_iterations
         self.source_functions = source_functions or {}
 
         l = concentration_X.shape[-1]
@@ -102,34 +96,50 @@ class WaveModelG(object):
             negative_Y *= negative_gyre_Y
             return self.ifft(positive_G), self.ifft(negative_G), self.ifft(positive_X), self.ifft(negative_X), self.ifft(positive_Y), self.ifft(negative_Y)
 
-        def reaction_integrator(positive_G, negative_G, positive_X, negative_X, positive_Y, negative_Y):
-            new_pos_G = positive_G
-            new_neg_G = negative_G
-            new_pos_X = positive_X
-            new_neg_X = negative_X
-            new_pos_Y = positive_Y
-            new_neg_Y = negative_Y
-            for _ in range(self.fixed_point_iterations):
-                new_G = new_pos_G + new_neg_G
-                new_X = new_pos_X + new_neg_X
-                new_Y = new_pos_Y + new_neg_Y
+        # def reaction_integrator(positive_G, negative_G, positive_X, negative_X, positive_Y, negative_Y):
+        #     new_pos_G = positive_G
+        #     new_neg_G = negative_G
+        #     new_pos_X = positive_X
+        #     new_neg_X = negative_X
+        #     new_pos_Y = positive_Y
+        #     new_neg_Y = negative_Y
+        #     for _ in range(self.fixed_point_iterations):
+        #         new_G = new_pos_G + new_neg_G
+        #         new_X = new_pos_X + new_neg_X
+        #         new_Y = new_pos_Y + new_neg_Y
 
-                gx_flow = self.params["k-2"]*new_X - self.params["k2"]*new_G
-                xy_flow = new_X*new_X*new_Y - self.params["B"]*new_X
-                v_G = self.params["A"] + gx_flow
-                v_X = xy_flow - gx_flow - self.params["k5"] * new_X
-                v_Y = -xy_flow
+        #         gx_flow = self.params["k-2"]*new_X - self.params["k2"]*new_G
+        #         xy_flow = new_X*new_X*new_Y - self.params["B"]*new_X
+        #         v_G = self.params["A"] + gx_flow
+        #         v_X = xy_flow - gx_flow - self.params["k5"] * new_X
+        #         v_Y = -xy_flow
 
-                new_pos_G = positive_G + 0.5*self.dt*v_G
-                new_neg_G = negative_G + 0.5*self.dt*v_G
-                new_pos_X = positive_X + 0.5*self.dt*v_X
-                new_neg_X = negative_X + 0.5*self.dt*v_X
-                new_pos_Y = positive_Y + 0.5*self.dt*v_Y
-                new_neg_Y = negative_Y + 0.5*self.dt*v_Y
-            return new_pos_G, new_neg_G, new_pos_X, new_neg_X, new_pos_Y, new_neg_Y
+        #         new_pos_G = positive_G + 0.5*self.dt*v_G
+        #         new_neg_G = negative_G + 0.5*self.dt*v_G
+        #         new_pos_X = positive_X + 0.5*self.dt*v_X
+        #         new_neg_X = negative_X + 0.5*self.dt*v_X
+        #         new_pos_Y = positive_Y + 0.5*self.dt*v_Y
+        #         new_neg_Y = negative_Y + 0.5*self.dt*v_Y
+        #     return new_pos_G, new_neg_G, new_pos_X, new_neg_X, new_pos_Y, new_neg_Y
+
+        def reaction_integrator_curried(positive_G, negative_G, positive_X, negative_X, positive_Y, negative_Y):
+            con_G = positive_G + negative_G
+            con_X = positive_X + negative_X
+            con_Y = positive_Y + negative_Y
+            new_G, new_X, new_Y = reaction_integrator(
+                con_G, con_X, con_Y,
+                self.dt, self.params['A'], self.params['B'], self.params['k2'], self.params['k-2'], self.params['k5']
+            )
+            positive_G += 0.5*(new_G - con_G)
+            negative_G += 0.5*(new_G - con_G)
+            positive_X += 0.5*(new_X - con_X)
+            negative_X += 0.5*(new_X - con_X)
+            positive_Y += 0.5*(new_Y - con_Y)
+            negative_Y += 0.5*(new_Y - con_Y)
+            return positive_G, negative_G, positive_X, negative_X, positive_Y, negative_Y
 
         self.wave_diffusion_integrator = tf.function(wave_diffusion_integrator)
-        self.reaction_integrator = tf.function(reaction_integrator)
+        self.reaction_integrator = tf.function(reaction_integrator_curried)
 
     def step(self):
         values = self.wave_diffusion_integrator(self.positive_G, self.negative_G, self.positive_X, self.negative_X, self.positive_Y, self.negative_Y)
