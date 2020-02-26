@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from integrators.model_g import polynomial_order_4_centered as reaction_integrator
 
 DEFAULT_PARAMS = {
     "A": 3.42,
@@ -10,32 +11,6 @@ DEFAULT_PARAMS = {
     "Dx": 1.0,
     "Dy": 2.0,
 }
-
-
-def integrate_model_g_centered(a0, b0, c0, t, A, B, k2, k_2, k5):
-    """
-    Integrate 0-dimensional Model G starting from a known position `t` time units ahead.
-    The system has been "centered" so that the origin becomes a fixed point.
-    The coefficients have been derived using a computer algebra system by developing the solution into a series with respect to t around G,X,Y == a0,b0,c0.
-    """
-    a1 = -a0*k2 + b0*k_2
-    c1 = -b0**2*c0 - B*b0**2*k5/A - B*b0 - 2*A*b0*c0/k5 - A**2*c0/k5**2
-    b1 = -c1 + a0*k2 - b0*k5 - b0*k_2
-    a2 = -1/2*a1*k2 + 1/2*b1*k_2
-    c2 = -b0*b1*c0 - 1/2*b0**2*c1 - B*b0*b1*k5/A - 1/2*B*b1 - A*b1*c0/k5 - A*b0*c1/k5 - 1/2*A**2*c1/k5**2
-    b2 = -c2 + 1/2*a1*k2 - 1/2*b1*k5 - 1/2*b1*k_2
-    a3 = -1/3*a2*k2 + 1/3*b2*k_2
-    c3 = -1/3*b1**2*c0 - 2/3*b0*b2*c0 - 2/3*b0*b1*c1 - 1/3*b0**2*c2 - 1/3*B*b1**2*k5/A - 2/3*B*b0*b2*k5/A - 1/3*B*b2 - 2/3*A*b2*c0/k5 - 2/3*A*b1*c1/k5 - 2/3*A*b0*c2/k5 - 1/3*A**2*c2/k5**2
-    b3 = -c3 + 1/3*a2*k2 - 1/3*b2*k5 - 1/3*b2*k_2
-    a4 = -1/4*a3*k2 + 1/4*b3*k_2
-    c4 = -1/2*b1*b2*c0 - 1/2*b0*b3*c0 - 1/4*b1**2*c1 - 1/2*b0*b2*c1 - 1/2*b0*b1*c2 - 1/4*b0**2*c3 - 1/2*B*b1*b2*k5/A - 1/2*B*b0*b3*k5/A - 1/4*B*b3 - 1/2*A*b3*c0/k5 - 1/2*A*b2*c1/k5 - 1/2*A*b1*c2/k5 - 1/2*A*b0*c3/k5 - 1/4*A**2*c3/k5**2
-    b4 = -c4 + 1/4*a3*k2 - 1/4*b3*k5 - 1/4*b3*k_2
-
-    return (
-        a0 + t * (a1 + t * (a2 + t * (a3 + t*a4))),
-        b0 + t * (b1 + t * (b2 + t * (b3 + t*b4))),
-        c0 + t * (c1 + t * (c2 + t * (c3 + t*c4))),
-    )
 
 
 class ModelG(object):
@@ -106,13 +81,13 @@ class ModelG(object):
         else:
             raise ValueError('Only up to 3D supported')
 
-        reaction_integrator = lambda con_G, con_X, con_Y: integrate_model_g_centered(
+        reaction_integrator_curried = lambda con_G, con_X, con_Y: reaction_integrator(
             con_G, con_X, con_Y,
             self.dt, self.params['A'], self.params['B'], self.params['k2'], self.params['k-2'], self.params['k5']
         )
 
         self.diffusion_integrator = tf.function(diffusion_integrator)
-        self.reaction_integrator = tf.function(reaction_integrator)
+        self.reaction_integrator = tf.function(reaction_integrator_curried)
 
     def step(self):
         values = self.diffusion_integrator(self.concentration_G, self.concentration_X, self.concentration_Y)
