@@ -1,5 +1,5 @@
 import numpy as np
-from util import bl_noise
+from util import bl_noise, l2_location
 from mpl_toolkits import mplot3d
 import pylab
 from matplotlib.animation import FuncAnimation
@@ -121,24 +121,26 @@ def self_stabilizing_soliton_3D():
     pylab.show()
 
 
-# XXX: Nucleates, but the "movement" is just more catastrophic nucleation
+# XXX: Nucleates, but still doesn't move
 def nucleation_and_motion_in_G_gradient_1D():
     params = {
-        "A": 3.611,
-        "B": 13.8,
+        "A": 14,
+        "B": 29,
         "k2": 1.0,
-        "k-2": 0.2,
+        "k-2": 0.1,
         "k5": 0.9,
         "Dx": 1.0,
-        "Dy": 2.225,
+        "Dy": 12,
     }
 
-    x = np.linspace(-32, 32, 256)
+    x = np.linspace(-24, 24, 512)
     dx = x[1] - x[0]
 
     def source_G(t):
-        print(t)
-        return -np.exp(-0.5*x*x)*np.exp(-0.1*(t-5)**2) * 2.5 + x*0.00015 * (1+np.tanh(t-50))
+        center = np.exp(-0.1*(t-5)**2) * 5
+        gradient = (1+np.tanh(t-50)) * 0.0005
+        print("t={}\tcenter={}\tgradient={}".format(t, center, gradient))
+        return -np.exp(-0.25*x*x) * center + (x*0.5 + 7) * gradient
 
     source_functions = {
         'G': source_G
@@ -150,7 +152,8 @@ def nucleation_and_motion_in_G_gradient_1D():
         np.exp(-r2)*0.01*0,
         np.exp(-r2)*0.01*0,
         dx,
-        params,
+        dt=0.05*dx,
+        params=params,
         source_functions=source_functions,
     )
 
@@ -172,7 +175,7 @@ def nucleation_and_motion_in_G_gradient_1D():
     pylab.ylim(-0.1, 0.1)
 
     def update(frame):
-        for _ in range(5):
+        for _ in range(32):
             model_g.step()
         G, X, Y = get_data()
         plots[0].set_ydata(G)
@@ -184,7 +187,6 @@ def nucleation_and_motion_in_G_gradient_1D():
     pylab.show()
 
 
-# XXX: Nucleates, but doesn't move
 def nucleation_and_motion_in_G_gradient_2D():
     params = {
         "A": 3.42,
@@ -201,8 +203,10 @@ def nucleation_and_motion_in_G_gradient_2D():
     x, y = np.meshgrid(x, x)
 
     def source_G(t):
-        print(t)
-        return -np.exp(-0.5*(x*x+y*y))*np.exp(-0.1*(t-5)**2) * 2 + x*0.0005 * (1+np.tanh(t-20))
+        center = np.exp(-0.5*(t-5)**2) * 10
+        gradient = (1+np.tanh(t-40)) * 0.0005
+        # print("t = {}\tcenter potential = {}\tx-gradient = {}".format(t, center, gradient))
+        return -np.exp(-0.5*(x*x+y*y))* center + (x+8) * gradient
 
     source_functions = {
         'G': source_G,
@@ -214,12 +218,22 @@ def nucleation_and_motion_in_G_gradient_2D():
         -np.exp(-r2)*0.01*0,
         np.exp(-r2)*0.01*0,
         dx,
-        params,
+        dt=0.1*dx,
+        params=params,
         source_functions=source_functions,
     )
 
+    times = []
+    locs = []
+
     def get_data():
         G, X, Y = model_g.numpy()
+
+        loc = l2_location(X, x, y)
+        times.append(model_g.t)
+        locs.append(loc[0])
+        print("t={}\tL2 location: {}".format(model_g.t, tuple(loc)))
+
         x_scale = 0.1
         y_scale = 0.1
         return (
@@ -236,7 +250,7 @@ def nucleation_and_motion_in_G_gradient_2D():
     pylab.ylim(-0.1, 0.1)
 
     def update(frame):
-        for _ in range(5):
+        for _ in range(20):
             model_g.step()
         G, X, Y = get_data()
         plots[0].set_ydata(G)
@@ -249,6 +263,9 @@ def nucleation_and_motion_in_G_gradient_2D():
 
     G, X, Y = model_g.numpy()
     pylab.imshow(X)
+    pylab.show()
+
+    pylab.plot(times, locs)
     pylab.show()
 
 
@@ -430,8 +447,8 @@ def random_3D():
 
 
 if __name__ == '__main__':
-    random_3D()
+    # random_3D()
     # nucleation_and_motion_in_G_gradient_1D()
-    # nucleation_and_motion_in_G_gradient_2D()
+    nucleation_and_motion_in_G_gradient_2D()
     # self_stabilizing_soliton_2D()
     # self_stabilizing_soliton_3D()

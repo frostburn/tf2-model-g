@@ -1,5 +1,5 @@
 import numpy as np
-from util import bl_noise
+from util import bl_noise, l2_location
 import pylab
 from mpl_toolkits import mplot3d
 from matplotlib.animation import FuncAnimation
@@ -72,29 +72,31 @@ def morphing_hex_grid_2D():
     pylab.show()
 
 
-# XXX: Nucleates, but doesn't move
 def nucleation_and_motion_in_G_gradient_2D():
     params = {
         "A": 3.42,
-        "B": 13.5,
+        "B": 13.3,
         "k2": 1.0,
-        "k-2": 0.1,
+        "k-2": 0.11,
         "k5": 0.9,
-        "Dg": 0.3,
+        "Dg": 0.5,
         "Dx": 1.0,
         "Dy": 2.0,
-        "cg": 2.0,
+        "cg": 1.0,
         "cx": 1.0,
         "cy": 1.0,
     }
 
-    x = np.linspace(-16, 16, 128)
+    N = 256
+    x = np.linspace(-32, 32, N)
     dx = x[1] - x[0]
     x, y = np.meshgrid(x, x)
 
     def source_G(t):
-        print(t)
-        return -np.exp(-0.5*(x*x+y*y))*np.exp(-0.1*(t-5)**2) * 2 + x*0.0005 * (1+np.tanh(t-20))
+        center = np.exp(-0.5*(t-3)**2) * 5
+        gradient = (1+np.tanh(t-40)) * 0.0005
+        # print("t = {}\tcenter potential = {}\tx-gradient = {}".format(t, center, gradient))
+        return -np.exp(-0.5*(x*x+y*y))* center + (0.2*x+8) * gradient
 
     source_functions = {
         'G': source_G,
@@ -106,18 +108,28 @@ def nucleation_and_motion_in_G_gradient_2D():
         np.exp(-r2)*0.01*0,
         np.exp(-r2)*0.01*0,
         dx,
-        params,
+        dt=0.025*dx,
+        params=params,
         source_functions=source_functions,
     )
 
+    times = []
+    locs = []
+
     def get_data():
         G, X, Y = model_g.numpy()
+
+        loc = l2_location(X, x, y)
+        times.append(model_g.t)
+        locs.append(loc[0])
+        print("t={}\tL2 location: {}".format(model_g.t, tuple(loc)))
+
         x_scale = 0.1
         y_scale = 0.1
         return (
-            G[64],
-            X[64] * x_scale,
-            Y[64] * y_scale,
+            G[N//2],
+            X[N//2] * x_scale,
+            Y[N//2] * y_scale,
         )
 
     G, X, Y = get_data()
@@ -128,7 +140,7 @@ def nucleation_and_motion_in_G_gradient_2D():
     pylab.ylim(-0.1, 0.1)
 
     def update(frame):
-        for _ in range(5):
+        for _ in range(10):
             model_g.step()
         G, X, Y = get_data()
         plots[0].set_ydata(G)
@@ -141,6 +153,9 @@ def nucleation_and_motion_in_G_gradient_2D():
 
     G, X, Y = model_g.numpy()
     pylab.imshow(X)
+    pylab.show()
+
+    pylab.plot(times, locs)
     pylab.show()
 
 
@@ -330,6 +345,6 @@ def random_3D():
 
 
 if __name__ == '__main__':
-    random_3D()
-    # nucleation_and_motion_in_G_gradient_2D()
+    # random_3D()
+    nucleation_and_motion_in_G_gradient_2D()
     # morphing_hex_grid_2D()

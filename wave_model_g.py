@@ -25,11 +25,14 @@ class WaveModelG(object):
 
     # We use a scheme where the concentration is broken into positive and negative "gyrating" components.
     # This so that we get stable simulation of the wave equation portion.
-    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, source_functions=None):
+    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, dt=None, params=None, source_functions=None):
         if concentration_X.shape != concentration_Y.shape or concentration_X.shape != concentration_G.shape:
             raise ValueError("Concentration shapes must match")
         self.dx = dx
-        self.dt = dx*0.1
+        if dt is None:
+            self.dt = 0.1 * dx
+        else:
+            self.dt = dt
         self.t = 0
 
         self.params = params or DEFAULT_PARAMS

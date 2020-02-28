@@ -18,18 +18,20 @@ class ModelG(object):
     Model G Reaction Diffusion system
     """
 
-    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, params=None, fixed_point_iterations=3, source_functions=None):
+    def __init__(self, concentration_G, concentration_X, concentration_Y, dx, dt=None, params=None, source_functions=None):
         if concentration_X.shape != concentration_Y.shape or concentration_X.shape != concentration_G.shape:
             raise ValueError("Concentration shapes must match")
         self.dx = dx
-        self.dt = 0.1 * dx
+        if dt is None:
+            self.dt = 0.1 * dx
+        else:
+            self.dt = dt
         self.t = 0
 
         self.concentration_G = tf.constant(concentration_G, dtype="float64")
         self.concentration_X = tf.constant(concentration_X, dtype="float64")
         self.concentration_Y = tf.constant(concentration_Y, dtype="float64")
         self.params = params or DEFAULT_PARAMS
-        self.fixed_point_iterations = fixed_point_iterations
         self.source_functions = source_functions or {}
 
         l = concentration_X.shape[-1]

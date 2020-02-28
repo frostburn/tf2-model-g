@@ -68,3 +68,9 @@ if __name__ == '__main__':
 
     pylab.imshow(bl_noise(x.shape))
     pylab.show()
+
+
+def l2_location(field, *axis):
+    weight = field**2
+    # TODO: Normalize
+    return np.array([(a * weight).sum() for a in axis])
