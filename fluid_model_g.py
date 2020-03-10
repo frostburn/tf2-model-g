@@ -26,11 +26,16 @@ class FluidModelG(object):
     """
     Model G on a fluid medium
     """
-    def __init__(self, concentration_G, concentration_X, concentration_Y, u, dx, params=None):
+    def __init__(self, concentration_G, concentration_X, concentration_Y, u, dx, dt=None, params=None, source_functions=None):
         self.dx = dx
-        self.dt = 0.02 * dx
+        if dt is None:
+            self.dt = 0.02 * dx
+        else:
+            self.dt = dt
+        self.t = 0
 
         self.params = params or DEFAULT_PARAMS
+        self.source_functions = source_functions or {}
 
         self.G = tf.constant(concentration_G, 'float64')
         self.X = tf.constant(concentration_X, 'float64')
@@ -283,6 +288,15 @@ class FluidModelG(object):
             u, v, w = self.u, self.v, self.w  # Store unintegrated flow so that we're on the same timestep
             self.u, self.v, self.w, divergence = self.flow_integrator(rho, self.u, self.v, self.w)
             self.G, self.X, self.Y = self.diffusion_advection_integrator(self.G, self.X, self.Y, u, v, w, divergence)
+
+        zero = lambda t: 0
+        source_G = self.source_functions.get('G', zero)(self.t)
+        source_X = self.source_functions.get('X', zero)(self.t)
+        source_Y = self.source_functions.get('Y', zero)(self.t)
+        self.G += self.dt * source_G
+        self.X += self.dt * source_X
+        self.Y += self.dt * source_Y
+        self.t += self.dt
 
     def numpy(self):
         if self.dims == 2:
