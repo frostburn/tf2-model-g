@@ -20,16 +20,16 @@ class PDESolver(object):
             actual_span = s*dx
             omega.append(wave_numbers * expected_span / actual_span)
         self.omega = np.meshgrid(*omega)
-        dims = len(shape)
+        self.dims = len(shape)
         # The naming is a bit off. These are not actual 'kernels'.
         # They are discrete fourier transforms of the periodic versions of the kernels
-        if dims == 1:
+        if self.dims == 1:
             self.fft = tf.signal.fft
             self.ifft = tf.signal.ifft
             self.omega_x = self.omega[0]
             self.kernel_dx = tf.constant(1j * self.omega_x, 'complex128')
             self.kernel_laplacian = tf.constant(-self.omega_x**2, 'complex128')
-        elif dims == 2:
+        elif self.dims == 2:
             self.fft = tf.signal.fft2d
             self.ifft = tf.signal.ifft2d
 
@@ -39,7 +39,7 @@ class PDESolver(object):
             self.kernel_dx = tf.constant(1j * self.omega_x, 'complex128')
             self.kernel_dy = tf.constant(1j * self.omega_y, 'complex128')
             self.kernel_laplacian = tf.constant(-(self.omega_x**2 + self.omega_y**2), 'complex128')
-        elif dims == 3:
+        elif self.dims == 3:
             self.fft = tf.signal.fft3d
             self.ifft = tf.signal.ifft3d
 
@@ -51,6 +51,8 @@ class PDESolver(object):
             self.kernel_dy = tf.constant(1j * self.omega_y, 'complex128')
             self.kernel_dz = tf.constant(1j * self.omega_z, 'complex128')
             self.kernel_laplacian = tf.constant(-(self.omega_x**2 + self.omega_y**2 + self.omega_z**2), 'complex128')
+        else:
+            raise ValueError('{} dimensions not supported'.format(self.dims))
 
 
 if __name__ == '__main__':

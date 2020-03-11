@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import util
+from pde_solver import PDESolver
 from integrators.model_g import polynomial_order_4_centered as reaction_integrator
 
 
@@ -22,17 +23,15 @@ DEFAULT_PARAMS = {
 }
 
 
-class FluidModelG(object):
+class FluidModelG(PDESolver):
     """
     Model G on a fluid medium
     """
     def __init__(self, concentration_G, concentration_X, concentration_Y, u, dx, dt=None, params=None, source_functions=None):
-        self.dx = dx
         if dt is None:
-            self.dt = 0.02 * dx
-        else:
-            self.dt = dt
-        self.t = 0
+            dt = 0.1 * dx
+
+        super().__init__(dx, dt, concentration_G.shape)
 
         self.params = params or DEFAULT_PARAMS
         self.source_functions = source_functions or {}
@@ -41,43 +40,28 @@ class FluidModelG(object):
         self.X = tf.constant(concentration_X, 'float64')
         self.Y = tf.constant(concentration_Y, 'float64')
 
-        l = self.X.shape[-1]
-        if any(s != l for s in self.X.shape):
-            raise ValueError('Only square grids supported')
+        if len(u) != self.dims:
+            raise ValueError("{0}-dimensional flow must have {0} components".format(self.dims))
 
-        dims = len(self.X.shape)
-        if len(u) != dims:
-            raise ValueError("{0}-dimensional flow must have {0} components".format(dims))
-        self.dims = dims
-
-        ratio = 2*np.pi / (l*self.dx)
-        delta = self.dt * ratio**2
-        omega = np.arange(l)
-        omega -= l * (2*omega > l)
-        c2 = self.params["speed-of-sound"]
+        c2 = self.params["speed-of-sound"]**2
         viscosity = self.params["viscosity"]
-        if dims == 1:
+        if self.dims == 1:
             raise ValueError("1D not supported")
-        elif dims == 2:
+        elif self.dims == 2:
             self.u = tf.constant(u[0], 'float64')
             self.v = tf.constant(u[1], 'float64')
 
-            self.fft = tf.signal.fft2d
-            self.ifft = tf.signal.ifft2d
-
-            omega_x, omega_y = np.meshgrid(omega, omega)
+            omega_x, omega_y = self.omega_x, self.omega_y
             omega2 = omega_x**2 + omega_y**2
             omega2_x = tf.constant(omega2 + 1/3 * omega_x * (omega_x + omega_y), "complex128")
             omega2_y = tf.constant(omega2 + 1/3 * omega_y * (omega_x + omega_y), "complex128")
-            decay_x = tf.exp(-viscosity * delta * omega2_x)
-            decay_y = tf.exp(-viscosity * delta * omega2_y)
+            decay_x = tf.exp(-viscosity * omega2_x * self.dt)
+            decay_y = tf.exp(-viscosity * omega2_y * self.dt)
 
-            omega_dx = tf.constant(1j * omega_x, 'complex128')
-            omega_dy = tf.constant(1j * omega_y, 'complex128')
-
-            decay_G = tf.exp(-self.params['D_G'] * delta * tf.constant(omega2, 'complex128'))
-            decay_X = tf.exp(-self.params['D_X'] * delta * tf.constant(omega2, 'complex128'))
-            decay_Y = tf.exp(-self.params['D_Y'] * delta * tf.constant(omega2, 'complex128'))
+            delta = tf.constant(-omega2 * self.dt, "complex128")
+            decay_G = tf.exp(self.params['D_G'] * delta)
+            decay_X = tf.exp(self.params['D_X'] * delta)
+            decay_Y = tf.exp(self.params['D_Y'] * delta)
 
             def flow_integrator(rho, u, v):
                 """
@@ -97,12 +81,12 @@ class FluidModelG(object):
                 v = tf.cast(self.ifft(waves_y), 'float64')
 
                 # Calculate gradients
-                rho_dx = tf.cast(self.ifft(f_rho * omega_dx), 'float64')
-                rho_dy = tf.cast(self.ifft(f_rho * omega_dy), 'float64')
-                u_dx = tf.cast(self.ifft(waves_x * omega_dx), 'float64')
-                u_dy = tf.cast(self.ifft(waves_x * omega_dy), 'float64')
-                v_dx = tf.cast(self.ifft(waves_y * omega_dx), 'float64')
-                v_dy = tf.cast(self.ifft(waves_y * omega_dy), 'float64')
+                rho_dx = tf.cast(self.ifft(f_rho * self.kernel_dx), 'float64')
+                rho_dy = tf.cast(self.ifft(f_rho * self.kernel_dy), 'float64')
+                u_dx = tf.cast(self.ifft(waves_x * self.kernel_dx), 'float64')
+                u_dy = tf.cast(self.ifft(waves_x * self.kernel_dy), 'float64')
+                v_dx = tf.cast(self.ifft(waves_y * self.kernel_dx), 'float64')
+                v_dy = tf.cast(self.ifft(waves_y * self.kernel_dy), 'float64')
                 divergence = u_dx + v_dy
 
                 # This would handle log density continuity but it's actually handled individually for G, X and Y
@@ -138,41 +122,35 @@ class FluidModelG(object):
                 X = tf.cast(self.ifft(f_X), 'float64')
                 Y = tf.cast(self.ifft(f_Y), 'float64')
 
-                G_dx = tf.cast(self.ifft(f_G * omega_dx), 'float64')
-                G_dy = tf.cast(self.ifft(f_G * omega_dy), 'float64')
-                X_dx = tf.cast(self.ifft(f_X * omega_dx), 'float64')
-                X_dy = tf.cast(self.ifft(f_X * omega_dy), 'float64')
-                Y_dx = tf.cast(self.ifft(f_Y * omega_dx), 'float64')
-                Y_dy = tf.cast(self.ifft(f_Y * omega_dy), 'float64')
+                G_dx = tf.cast(self.ifft(f_G * self.kernel_dx), 'float64')
+                G_dy = tf.cast(self.ifft(f_G * self.kernel_dy), 'float64')
+                X_dx = tf.cast(self.ifft(f_X * self.kernel_dx), 'float64')
+                X_dy = tf.cast(self.ifft(f_X * self.kernel_dy), 'float64')
+                Y_dx = tf.cast(self.ifft(f_Y * self.kernel_dx), 'float64')
+                Y_dy = tf.cast(self.ifft(f_Y * self.kernel_dy), 'float64')
 
                 G -= (u*G_dx + v*G_dy + G*divergence) * self.dt
                 X -= (u*X_dx + v*X_dy + X*divergence) * self.dt
                 Y -= (u*Y_dx + v*Y_dy + Y*divergence) * self.dt
                 return G, X, Y
-        elif dims == 3:
+        elif self.dims == 3:
             self.u = tf.constant(u[0], 'float64')
             self.v = tf.constant(u[1], 'float64')
             self.w = tf.constant(u[2], 'float64')
 
-            self.fft = tf.signal.fft3d
-            self.ifft = tf.signal.ifft3d
-
-            omega_x, omega_y, omega_z = np.meshgrid(omega, omega, omega)
+            omega_x, omega_y, omega_z = self.omega_x, self.omega_y, self.omega_z
             omega2 = omega_x**2 + omega_y**2 + omega_z**2
             omega2_x = tf.constant(omega2 + 1/3 * omega_x * (omega_x + omega_y + omega_z), "complex128")
             omega2_y = tf.constant(omega2 + 1/3 * omega_y * (omega_x + omega_y + omega_z), "complex128")
             omega2_z = tf.constant(omega2 + 1/3 * omega_z * (omega_x + omega_y + omega_z), "complex128")
-            decay_x = tf.exp(-viscosity * delta * omega2_x)
-            decay_y = tf.exp(-viscosity * delta * omega2_y)
-            decay_z = tf.exp(-viscosity * delta * omega2_z)
+            decay_x = tf.exp(-viscosity * omega2_x * self.dt)
+            decay_y = tf.exp(-viscosity * omega2_y * self.dt)
+            decay_z = tf.exp(-viscosity * omega2_z * self.dt)
 
-            omega_dx = tf.constant(1j * omega_x, 'complex128')
-            omega_dy = tf.constant(1j * omega_y, 'complex128')
-            omega_dz = tf.constant(1j * omega_z, 'complex128')
-
-            decay_G = tf.exp(-self.params['D_G'] * delta * tf.constant(omega2, 'complex128'))
-            decay_X = tf.exp(-self.params['D_X'] * delta * tf.constant(omega2, 'complex128'))
-            decay_Y = tf.exp(-self.params['D_Y'] * delta * tf.constant(omega2, 'complex128'))
+            delta = tf.constant(-omega2 * self.dt, "complex128")
+            decay_G = tf.exp(self.params['D_G'] * delta)
+            decay_X = tf.exp(self.params['D_X'] * delta)
+            decay_Y = tf.exp(self.params['D_Y'] * delta)
 
             def flow_integrator(rho, u, v, w):
                 # Enter Fourier Domain
@@ -192,21 +170,21 @@ class FluidModelG(object):
                 w = tf.cast(self.ifft(waves_z), 'float64')
 
                 # Calculate gradients
-                rho_dx = tf.cast(self.ifft(f_rho * omega_dx), 'float64')
-                rho_dy = tf.cast(self.ifft(f_rho * omega_dy), 'float64')
-                rho_dz = tf.cast(self.ifft(f_rho * omega_dz), 'float64')
+                rho_dx = tf.cast(self.ifft(f_rho * self.kernel_dx), 'float64')
+                rho_dy = tf.cast(self.ifft(f_rho * self.kernel_dy), 'float64')
+                rho_dz = tf.cast(self.ifft(f_rho * self.kernel_dz), 'float64')
 
-                u_dx = tf.cast(self.ifft(waves_x * omega_dx), 'float64')
-                u_dy = tf.cast(self.ifft(waves_x * omega_dy), 'float64')
-                u_dz = tf.cast(self.ifft(waves_x * omega_dz), 'float64')
+                u_dx = tf.cast(self.ifft(waves_x * self.kernel_dx), 'float64')
+                u_dy = tf.cast(self.ifft(waves_x * self.kernel_dy), 'float64')
+                u_dz = tf.cast(self.ifft(waves_x * self.kernel_dz), 'float64')
 
-                v_dx = tf.cast(self.ifft(waves_y * omega_dx), 'float64')
-                v_dy = tf.cast(self.ifft(waves_y * omega_dy), 'float64')
-                v_dz = tf.cast(self.ifft(waves_y * omega_dz), 'float64')
+                v_dx = tf.cast(self.ifft(waves_y * self.kernel_dx), 'float64')
+                v_dy = tf.cast(self.ifft(waves_y * self.kernel_dy), 'float64')
+                v_dz = tf.cast(self.ifft(waves_y * self.kernel_dz), 'float64')
 
-                w_dx = tf.cast(self.ifft(waves_z * omega_dx), 'float64')
-                w_dy = tf.cast(self.ifft(waves_z * omega_dy), 'float64')
-                w_dz = tf.cast(self.ifft(waves_z * omega_dz), 'float64')
+                w_dx = tf.cast(self.ifft(waves_z * self.kernel_dx), 'float64')
+                w_dy = tf.cast(self.ifft(waves_z * self.kernel_dy), 'float64')
+                w_dz = tf.cast(self.ifft(waves_z * self.kernel_dz), 'float64')
 
                 divergence = u_dx + v_dy + w_dz
 
@@ -246,15 +224,15 @@ class FluidModelG(object):
                 X = tf.cast(self.ifft(f_X), 'float64')
                 Y = tf.cast(self.ifft(f_Y), 'float64')
 
-                G_dx = tf.cast(self.ifft(f_G * omega_dx), 'float64')
-                G_dy = tf.cast(self.ifft(f_G * omega_dy), 'float64')
-                G_dz = tf.cast(self.ifft(f_G * omega_dz), 'float64')
-                X_dx = tf.cast(self.ifft(f_X * omega_dx), 'float64')
-                X_dy = tf.cast(self.ifft(f_X * omega_dy), 'float64')
-                X_dz = tf.cast(self.ifft(f_X * omega_dz), 'float64')
-                Y_dx = tf.cast(self.ifft(f_Y * omega_dx), 'float64')
-                Y_dy = tf.cast(self.ifft(f_Y * omega_dy), 'float64')
-                Y_dz = tf.cast(self.ifft(f_Y * omega_dz), 'float64')
+                G_dx = tf.cast(self.ifft(f_G * self.kernel_dx), 'float64')
+                G_dy = tf.cast(self.ifft(f_G * self.kernel_dy), 'float64')
+                G_dz = tf.cast(self.ifft(f_G * self.kernel_dz), 'float64')
+                X_dx = tf.cast(self.ifft(f_X * self.kernel_dx), 'float64')
+                X_dy = tf.cast(self.ifft(f_X * self.kernel_dy), 'float64')
+                X_dz = tf.cast(self.ifft(f_X * self.kernel_dz), 'float64')
+                Y_dx = tf.cast(self.ifft(f_Y * self.kernel_dx), 'float64')
+                Y_dy = tf.cast(self.ifft(f_Y * self.kernel_dy), 'float64')
+                Y_dz = tf.cast(self.ifft(f_Y * self.kernel_dz), 'float64')
 
                 G -= (u*G_dx + v*G_dy + w*G_dz + G*divergence) * self.dt
                 X -= (u*X_dx + v*X_dy + w*X_dz + X*divergence) * self.dt
@@ -304,64 +282,3 @@ class FluidModelG(object):
         elif self.dims == 3:
             u = (self.u.numpy(), self.v.numpy(), self.w.numpy())
         return self.G.numpy(), self.X.numpy(), self.Y.numpy(), u
-
-
-if __name__ == '__main__':
-    from util import bl_noise
-    import pylab
-    from matplotlib.animation import FuncAnimation
-
-    N = 64
-    x = np.linspace(-4, 4, N)
-    dx = x[1] - x[0]
-
-    if '3D':
-        x, y, z = np.meshgrid(x, x, x)
-        G = -np.exp(-0.5*(x*x+y*y+z*z))*0.6
-        X = bl_noise(x.shape)*0.01
-        Y = bl_noise(x.shape)*0.01
-
-        flow = [
-            np.exp(-(x)**2-(y-1)**2-z**2)*0.001,
-            np.exp(-(x-2)**2-y**2-z**2)*0.001,
-            np.exp(-x**2-y**2-z**2)*x*y*0.001
-        ]
-        fluid_model_g = FluidModelG(G, X, Y, flow, dx)
-
-        G, X, Y, (u, v, w) = fluid_model_g.numpy()
-        plots = [pylab.imshow(X[::-1,:, 0], extent=(-4,4,-4,4) , vmin=-0.1, vmax=0.1, cmap="cividis")]
-        plots.append(pylab.quiver(x[::4,::4, 0], y[::4,::4, 0], u[::4,::4, 0] + 0.002, v[::4,::4, 0]+0.002))
-
-        def update(frame):
-            fluid_model_g.step()
-            G, X, Y, (u, v, w) = fluid_model_g.numpy()
-            print(frame, abs(G).max(), abs(X).max(), abs(Y).max(), abs(u).max())
-            plots[0].set_data(X[::-1,:, frame])
-            plots[1].set_UVC(u[::4,::4, frame], v[::4,::4, frame])
-            return plots
-    else:
-        x, y = np.meshgrid(x, x)
-        G = -np.exp(-x*x-y*y)
-        X = np.exp(-x*x - 0.3*y*y) * (1 + 0.05*bl_noise(x.shape))
-        Y = 0*x
-
-        flow = [
-            np.exp(-(x)**2-(y-1)**2)*0.5 - 0.1,
-            0.1 - np.exp(-(x-2)**2-y**2)*0.5,
-        ]
-        fluid_model_g = FluidModelG(G, X, Y, flow, dx)
-
-        G, X, Y, (u, v) = fluid_model_g.numpy()
-        plots = [pylab.imshow(Y[::-1,:], extent=(-4,4,-4,4) , vmin=-1.0, vmax=1.0, cmap="cividis")]
-        plots.append(pylab.quiver(x[::4,::4], y[::4,::4], u[::4,::4], v[::4,::4]))
-
-        def update(frame):
-            for _ in range(3):
-                fluid_model_g.step()
-            G, X, Y, (u, v) = fluid_model_g.numpy()
-            plots[0].set_data(Y[::-1,:])
-            plots[1].set_UVC(u[::4,::4], v[::4,::4])
-            return plots
-
-    FuncAnimation(pylab.gcf(), update, frames=range(N), init_func=lambda: plots, blit=True, repeat=True, interval=50)
-    pylab.show()
