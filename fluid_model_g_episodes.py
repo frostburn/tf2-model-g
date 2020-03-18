@@ -26,7 +26,7 @@ def nucleation_and_motion_in_G_gradient_2D(N=128, R=16):
 
     x = np.linspace(-R, R, N)
     dx = x[1] - x[0]
-    x, y = np.meshgrid(x, x)
+    x, y = np.meshgrid(x, x, indexing='ij')
 
     def source_G(t):
         center = np.exp(-0.5*(t-5)**2) * 10
@@ -64,20 +64,20 @@ def nucleation_and_motion_in_G_gradient_2D(N=128, R=16):
         x_scale = 0.1
         y_scale = 0.1
         return (
-            G[N//2],
-            X[N//2] * x_scale,
-            Y[N//2] * y_scale,
-            u[N//2],
-            v[N//2],
+            G[:,N//2],
+            X[:,N//2] * x_scale,
+            Y[:,N//2] * y_scale,
+            u[:,N//2],
+            v[:,N//2],
         )
 
     G, X, Y, u, v = get_data()
     plots = []
-    plots.extend(pylab.plot(x[0], G))
-    plots.extend(pylab.plot(x[0], X))
-    plots.extend(pylab.plot(x[0], Y))
-    plots.extend(pylab.plot(x[0], u))
-    plots.extend(pylab.plot(x[0], v))
+    plots.extend(pylab.plot(x[:,0], G))
+    plots.extend(pylab.plot(x[:,0], X))
+    plots.extend(pylab.plot(x[:,0], Y))
+    plots.extend(pylab.plot(x[:,0], u))
+    plots.extend(pylab.plot(x[:,0], v))
     pylab.ylim(-0.1, 0.1)
 
     def update(frame):
@@ -122,7 +122,7 @@ def nucleation_3D(animated=False, N=128, R=20):
 
     x = np.linspace(-R, R, N)
     dx = x[1] - x[0]
-    x, y, z = np.meshgrid(x, x, x)
+    x, y, z = np.meshgrid(x, x, x, indexing='ij')
 
 
     def source_G(t):
@@ -223,5 +223,5 @@ def nucleation_3D(animated=False, N=128, R=20):
 
 
 if __name__ == '__main__':
-    nucleation_3D()
-    # nucleation_and_motion_in_G_gradient_2D()
+    # nucleation_3D()
+    nucleation_and_motion_in_G_gradient_2D()
