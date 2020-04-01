@@ -3,6 +3,7 @@ import numpy as np
 import util
 from pde_solver import PDESolver
 from integrators.model_g import polynomial_order_4_centered as reaction_integrator
+from integrators.model_g import steady_state
 
 
 DEFAULT_PARAMS = {
@@ -39,6 +40,8 @@ class FluidModelG(PDESolver):
         self.G = tf.constant(concentration_G, 'float64')
         self.X = tf.constant(concentration_X, 'float64')
         self.Y = tf.constant(concentration_Y, 'float64')
+
+        G0, X0, Y0 = steady_state(self.params['A'], self.params['B'], self.params['k2'], self.params['k-2'], self.params['k5'])
 
         if len(u) != self.dims:
             raise ValueError("{0}-dimensional flow must have {0} components".format(self.dims))
@@ -234,9 +237,9 @@ class FluidModelG(PDESolver):
                 Y_dy = tf.cast(self.ifft(f_Y * self.kernel_dy), 'float64')
                 Y_dz = tf.cast(self.ifft(f_Y * self.kernel_dz), 'float64')
 
-                G -= (u*G_dx + v*G_dy + w*G_dz + G*divergence) * self.dt
-                X -= (u*X_dx + v*X_dy + w*X_dz + X*divergence) * self.dt
-                Y -= (u*Y_dx + v*Y_dy + w*Y_dz + Y*divergence) * self.dt
+                G -= (u*G_dx + v*G_dy + w*G_dz + (G+G0)*divergence) * self.dt
+                X -= (u*X_dx + v*X_dy + w*X_dz + (X+X0)*divergence) * self.dt
+                Y -= (u*Y_dx + v*Y_dy + w*Y_dz + (Y+Y0)*divergence) * self.dt
                 return G, X, Y
         else:
             raise ValueError('Only up to 3D supported')

@@ -7,7 +7,7 @@ def bl_noise_generic(shape, frequencies=None, weights=None):
     frequencies = list(frequencies or range(1, 11))
     weights = weights or [1.0 / f for f in frequencies]
     if True:
-        grid = np.meshgrid(*[np.linspace(0, 2*np.pi, s) for s in shape])
+        grid = np.meshgrid(*[np.linspace(0, 2*np.pi, s) for s in shape], indexing='ij')
         result = 0
         for f, w in zip(frequencies, weights):
             for _ in range(5):
@@ -34,7 +34,7 @@ def bl_noise(shape, limit=11, weight=None):
         x = l//2 - abs(np.arange(l) - l//2)
         l = shape[1]
         y = l//2 - abs(np.arange(l) - l//2)
-        x, y = np.meshgrid(x, y)
+        x, y = np.meshgrid(x, y, indexing='ij')
         freqs = np.sqrt(x*x + y*y)
     elif dims == 3:
         l = shape[0]
@@ -43,7 +43,7 @@ def bl_noise(shape, limit=11, weight=None):
         y = l//2 - abs(np.arange(l) - l//2)
         l = shape[2]
         z = l//2 - abs(np.arange(l) - l//2)
-        x, y, z = np.meshgrid(x, y, z)
+        x, y, z = np.meshgrid(x, y, z, indexing='ij')
         freqs = np.sqrt(x*x + y*y + z*z)
     if dims <= 3:
         components *= weight(freqs) * (freqs <= limit)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     import pylab
     x = np.linspace(-4, 3, 100)
     dx = x[1] - x[0]
-    x, y = np.meshgrid(x, x)
+    x, y = np.meshgrid(x, x, indexing='ij')
 
     pylab.imshow(bl_noise(x.shape))
     pylab.show()
