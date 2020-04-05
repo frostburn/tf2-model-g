@@ -115,7 +115,7 @@ def nucleation_3D(animated=False, N=128, R=20):
         "density_G": 1.0,
         "density_X": 0.0002,
         "density_Y": 0.043,
-        "base-density": 9.0,
+        "base-density": 20.0,
         "viscosity": 0.4,
         "speed-of-sound": 1.0,
     }
@@ -223,5 +223,5 @@ def nucleation_3D(animated=False, N=128, R=20):
 
 
 if __name__ == '__main__':
-    # nucleation_3D()
-    nucleation_and_motion_in_G_gradient_2D()
+    nucleation_3D()
+    # nucleation_and_motion_in_G_gradient_2D()

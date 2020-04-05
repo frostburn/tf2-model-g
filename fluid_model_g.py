@@ -1,3 +1,4 @@
+import warnings
 import tensorflow as tf
 import numpy as np
 import util
@@ -31,6 +32,9 @@ class FluidModelG(PDESolver):
     def __init__(self, concentration_G, concentration_X, concentration_Y, u, dx, dt=None, params=None, source_functions=None):
         if dt is None:
             dt = 0.1 * dx
+
+        if dt > 0.5 * dx:
+            warnings.warn("Time increment {} too large for simulation stability with grid constant {}".format(dt, dx))
 
         super().__init__(dx, dt, concentration_G.shape)
 
