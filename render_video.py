@@ -7,6 +7,7 @@ import progressbar
 import imageio
 
 from fluid_model_g import FluidModelG
+from util import bl_noise
 
 
 RESOLUTIONS = {
@@ -105,9 +106,93 @@ def nucleation_and_motion_in_G_gradient_2D(writer, args, R=16):
     # print(min_G, max_G, min_X, max_X, min_Y, max_Y)
 
 
+# TODO: Requires some work. Unstable like this.
+def nucleation_3D(writer, args, R=20):
+    params = {
+        "A": 3.4,
+        "B": 13.5,
+        "k2": 1.0,
+        "k-2": 0.1,
+        "k5": 0.9,
+        "D_G": 1.0,
+        "D_X": 1.0,
+        "D_Y": 1.95,
+        "density_G": 1.0,
+        "density_X": 0.0002,
+        "density_Y": 0.043,
+        "base-density": 9.0,
+        "viscosity": 0.3,
+        "speed-of-sound": 1.0,
+    }
+
+    dx = 2*R / args.height
+    x = (np.arange(args.width) - args.width // 2) * dx
+    y = (np.arange(args.height) - args.height // 2) * dx
+    z = y
+    x, y, z = np.meshgrid(x, y, z, indexing='ij')
+
+    def source_G(t):
+        center = np.exp(-0.3*(t-6)**2) * 10
+        return -np.exp(-0.5*(x*x+y*y+z*z)) * center
+
+    source_functions = {
+        'G': source_G,
+    }
+
+    # We need some noise to break spherical symmetry
+    noise_scale = 1e-4
+    G = bl_noise(x.shape) * noise_scale
+    X = bl_noise(x.shape) * noise_scale
+    Y = bl_noise(x.shape) * noise_scale
+    flow = [
+        bl_noise(x.shape) * noise_scale,
+        bl_noise(x.shape) * noise_scale,
+        bl_noise(x.shape) * noise_scale
+    ]
+
+    fluid_model_g = FluidModelG(
+        G, X, Y,
+        flow,
+        dx,
+        dt=args.dt,
+        params=params,
+        source_functions=source_functions,
+    )
+
+    flow_particle_origins = []
+    for _ in range(1000):
+        flow_particle_origins.append([np.random.rand() * s for s in x.shape])
+
+    flow_particles = tf.constant(flow_particle_origins, dtype='float64')
+    flow_streaks = 0*x[:,:,0]
+
+    print("Rendering 'Nucleation and Motion in G gradient in 3D'")
+    print("Lattice constant dx = {}, time step dt = {}".format(fluid_model_g.dx, fluid_model_g.dt))
+    for n in progressbar.progressbar(range(args.num_frames)):
+        fluid_model_g.step()
+        for _ in range(20):
+            indices = tf.cast(flow_particles, 'int32')
+            for index in indices.numpy():
+                flow_streaks[index[0], index[1]] += 0.15 / args.oversampling
+            dx = tf.gather_nd(fluid_model_g.u, indices)
+            dy = tf.gather_nd(fluid_model_g.v, indices)
+            dz = tf.gather_nd(fluid_model_g.w, indices)
+            flow_particles = (flow_particles + tf.stack([dx, dy, dz], axis=1) * 400) % x.shape
+        if n % args.oversampling == 0:
+            rgb = [
+                tf.reduce_mean((7*fluid_model_g.G)**2, axis=2) + flow_streaks,
+                tf.reduce_mean((4*fluid_model_g.Y)**2, axis=2),
+                tf.reduce_mean((2*fluid_model_g.X)**2, axis=2),
+            ]
+            frame = make_video_frame(rgb)
+            writer.append_data(frame)
+            flow_streaks *= 0
+            flow_particles = tf.constant(flow_particle_origins, dtype='float64')
+
 if __name__ == '__main__':
     episodes = {
         'nucleation_and_motion': nucleation_and_motion_in_G_gradient_2D,
+        'nucleation': nucleation_3D,
     }
 
     parser = argparse.ArgumentParser(description='Render audio samples')
