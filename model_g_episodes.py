@@ -1,3 +1,4 @@
+# coding: utf-8
 import numpy as np
 from util import bl_noise, l2_location
 from mpl_toolkits import mplot3d
@@ -142,13 +143,23 @@ def nucleation_and_motion_in_G_gradient_1D():
     dx = x[1] - x[0]
 
     def source_G(t):
-        center = np.exp(-0.1*(t-5)**2) * 5
+        center = -np.exp(-0.1*(t-5)**2) * 5
         gradient = (1+np.tanh(t-50)) * 0.0005
         print("t={}\tcenter={}\tgradient={}".format(t, center, gradient))
-        return -np.exp(-0.25*x*x) * center + (x*0.5 + 7) * gradient
+        return np.exp(-0.25*x*x) * center + (x*0.5 + 7) * gradient
+
+    def source_X(t):
+        center = np.exp(-0.1*(t-5)**2) * 5
+        return -np.exp(-0.25*x*x) * center
+
+    def source_Y(t):
+        center = np.exp(-0.1*(t-5)**2) * 0
+        return np.exp(-0.25*x*x) * center
 
     source_functions = {
-        'G': source_G
+        'G': source_G,
+        'X': source_X,
+        'Y': source_Y,
     }
 
     r2 = x*x
@@ -190,6 +201,10 @@ def nucleation_and_motion_in_G_gradient_1D():
 
     FuncAnimation(pylab.gcf(), update, frames=range(100), init_func=lambda: plots, blit=True, repeat=True, interval=20)
     pylab.show()
+
+    G, X, Y = model_g.numpy()
+    print("Total G={}, X={} Y={}".format(G.sum(), X.sum(), Y.sum()))
+    print("Total G²={}, X²={} Y²={}".format((G**2).sum(), (X**2).sum(), (Y**2).sum()))
 
 
 def nucleation_and_motion_in_G_gradient_2D():
