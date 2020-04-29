@@ -54,8 +54,8 @@ Further numerical considerations include solving the steady state equations $R_J
 The previous equations can be considered to be the 0-dimensional version of Model G. We now add a spatial component with diffusion.
 \begin{align*}
 \frac{\partial G}{\partial t} &= D_G \nabla^2 G + R_G(G, X, Y) \\
-\frac{\partial G}{\partial t} &= D_X \nabla^2 X + R_X(G, X, Y) \\
-\frac{\partial G}{\partial t} &= D_Y \nabla^2 Y + R_Y(G, X, Y) \\
+\frac{\partial X}{\partial t} &= D_X \nabla^2 X + R_X(G, X, Y) \\
+\frac{\partial Y}{\partial t} &= D_Y \nabla^2 Y + R_Y(G, X, Y) \\
 \end{align*}
 When integrating the system numerically we alternate between solving the diffusion equation and the reaction equation for short time steps $\Delta t$. This is simpler than trying to solve the whole equation at once. The diffusion part has an exact solution.
 \begin{align}
