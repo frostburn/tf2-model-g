@@ -223,5 +223,5 @@ def nucleation_3D(animated=False, N=128, R=20):
 
 
 if __name__ == '__main__':
-    nucleation_3D()
-    # nucleation_and_motion_in_G_gradient_2D()
+    # nucleation_3D()
+    nucleation_and_motion_in_G_gradient_2D()

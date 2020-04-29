@@ -12,8 +12,9 @@ def self_stabilizing_soliton_2D():
         "k2": 1.0,
         "k-2": 0.2,
         "k5": 0.9,
-        "Dx": 1.0,
-        "Dy": 2.0,
+        "D_G": 1.0,
+        "D_X": 1.0,
+        "D_Y": 2.0,
     }
 
     x = np.linspace(-16, 16, 256)
@@ -26,6 +27,7 @@ def self_stabilizing_soliton_2D():
         np.exp(-r2)*0.01,
         np.exp(-r2)*0.01 + bl_noise(x.shape)*0.02,
         dx,
+        0.1*dx,
         params,
     )
 
@@ -70,8 +72,9 @@ def self_stabilizing_soliton_3D():
         "k2": 1.0,
         "k-2": 0.1,
         "k5": 0.9,
-        "Dx": 1.0,
-        "Dy": 2.0,
+        "D_G": 1.0,
+        "D_X": 1.0,
+        "D_Y": 2.0,
     }
 
     x = np.linspace(-16, 16, 128)
@@ -84,6 +87,7 @@ def self_stabilizing_soliton_3D():
         -np.exp(-r2)*0.01,
         np.exp(-r2)*0.01 + bl_noise(x.shape)*0.02,
         dx,
+        dx*0.1,
         params,
     )
 
@@ -129,8 +133,9 @@ def nucleation_and_motion_in_G_gradient_1D():
         "k2": 1.0,
         "k-2": 0.1,
         "k5": 0.9,
-        "Dx": 1.0,
-        "Dy": 12,
+        "D_G": 1.0,
+        "D_X": 1.0,
+        "D_Y": 12,
     }
 
     x = np.linspace(-24, 24, 512)
@@ -194,8 +199,9 @@ def nucleation_and_motion_in_G_gradient_2D():
         "k2": 1.0,
         "k-2": 0.1,
         "k5": 0.9,
-        "Dx": 1.0,
-        "Dy": 1.95,
+        "D_G": 1.0,
+        "D_X": 1.0,
+        "D_Y": 1.95,
     }
 
     x = np.linspace(-16, 16, 128)
@@ -277,8 +283,9 @@ def random_2D():
         "k2": 1.0 + 0.1*r(),
         "k-2": 0.1 + 0.01*r(),
         "k5": 0.9 + 0.1*r(),
-        "Dx": 1.0 + 0.1*r(),
-        "Dy": 2.0 + 0.1*r(),
+        "D_G": 1.0,
+        "D_X": 1.0 + 0.1*r(),
+        "D_Y": 2.0 + 0.1*r(),
     }
     print(params)
 
@@ -301,6 +308,7 @@ def random_2D():
         bl_noise(x.shape)*0.01,
         bl_noise(x.shape)*0.01,
         dx,
+        0.1*dx,
         params,
         source_functions=source_functions,
     )
@@ -354,8 +362,9 @@ def random_3D():
         "k2": 1.0 + 0.1*r(),
         "k-2": 0.1 + 0.01*r(),
         "k5": 0.9 + 0.1*r(),
-        "Dx": 1.0 + 0.1*r(),
-        "Dy": 2.0 + 0.1*r(),
+        "D_G": 1.0,
+        "D_X": 1.0 + 0.1*r(),
+        "D_Y": 2.0 + 0.1*r(),
     }
     print(params)
 
@@ -447,8 +456,8 @@ def random_3D():
 
 
 if __name__ == '__main__':
-    # random_3D()
-    # nucleation_and_motion_in_G_gradient_1D()
-    nucleation_and_motion_in_G_gradient_2D()
     # self_stabilizing_soliton_2D()
     # self_stabilizing_soliton_3D()
+    nucleation_and_motion_in_G_gradient_1D()
+    # random_3D()
+    # nucleation_and_motion_in_G_gradient_2D()

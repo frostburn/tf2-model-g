@@ -27,17 +27,12 @@ class PDESolver(object):
             self.fft = tf.signal.fft
             self.ifft = tf.signal.ifft
             self.omega_x = self.omega[0]
-            self.kernel_dx = tf.constant(1j * self.omega_x, 'complex128')
-            self.kernel_laplacian = tf.constant(-self.omega_x**2, 'complex128')
         elif self.dims == 2:
             self.fft = tf.signal.fft2d
             self.ifft = tf.signal.ifft2d
 
             self.omega_x = self.omega[0]
             self.omega_y = self.omega[1]
-            self.kernel_dx = tf.constant(1j * self.omega_x, 'complex128')
-            self.kernel_dy = tf.constant(1j * self.omega_y, 'complex128')
-            self.kernel_laplacian = tf.constant(-(self.omega_x**2 + self.omega_y**2), 'complex128')
         elif self.dims == 3:
             self.fft = tf.signal.fft3d
             self.ifft = tf.signal.ifft3d
@@ -45,12 +40,33 @@ class PDESolver(object):
             self.omega_x = self.omega[0]
             self.omega_y = self.omega[1]
             self.omega_z = self.omega[2]
+        else:
+            raise ValueError('{} dimensions not supported'.format(self.dims))
+
+
+class PDESolverDx(PDESolver):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.dims == 1:
+            self.kernel_dx = tf.constant(1j * self.omega_x, 'complex128')
+        elif self.dims == 2:
+            self.kernel_dx = tf.constant(1j * self.omega_x, 'complex128')
+            self.kernel_dy = tf.constant(1j * self.omega_y, 'complex128')
+        elif self.dims == 3:
             self.kernel_dx = tf.constant(1j * self.omega_x, 'complex128')
             self.kernel_dy = tf.constant(1j * self.omega_y, 'complex128')
             self.kernel_dz = tf.constant(1j * self.omega_z, 'complex128')
+
+
+class PDESolverDx2(PDESolverDx):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.dims == 1:
+            self.kernel_laplacian = tf.constant(-self.omega_x**2, 'complex128')
+        elif self.dims == 2:
+            self.kernel_laplacian = tf.constant(-(self.omega_x**2 + self.omega_y**2), 'complex128')
+        elif self.dims == 3:
             self.kernel_laplacian = tf.constant(-(self.omega_x**2 + self.omega_y**2 + self.omega_z**2), 'complex128')
-        else:
-            raise ValueError('{} dimensions not supported'.format(self.dims))
 
 
 if __name__ == '__main__':
@@ -59,7 +75,7 @@ if __name__ == '__main__':
     if '1D':
         x = np.linspace(-4, 4, 256)
         dx = x[1] - x[0]
-        solver = PDESolver(dx, dx*0.1, x.shape)
+        solver = PDESolverDx2(dx, dx*0.1, x.shape)
 
         test_function = np.exp(-x*x) * (2 + np.sin(3*x))
 
@@ -89,7 +105,7 @@ if __name__ == '__main__':
         y = (np.arange(200) - 100) * dx
         x, y = np.meshgrid(x, y, indexing='ij')
 
-        solver = PDESolver(dx, dx*0.1, x.shape)
+        solver = PDESolverDx2(dx, dx*0.1, x.shape)
 
         test_function = np.exp(-x*x - 2*y*y)*x
         test_function_dx = np.exp(-x*x - 2*y*y) * (1 - 2*x**2)
@@ -127,7 +143,7 @@ if __name__ == '__main__':
 
         x, y, z = np.meshgrid(x, y, z, indexing='ij')
 
-        solver = PDESolver(dx, dx*0.1, x.shape)
+        solver = PDESolverDx2(dx, dx*0.1, x.shape)
 
         test_function = np.exp(-x*x - 3*y*y - 2*z*z)
         test_function_dx = -2*x*np.exp(-x*x - 3*y*y - 2*z*z)

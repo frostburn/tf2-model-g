@@ -2,7 +2,7 @@ import warnings
 import tensorflow as tf
 import numpy as np
 import util
-from pde_solver import PDESolver
+from pde_solver import PDESolverDx
 from integrators.model_g import polynomial_order_4_centered as reaction_integrator
 from integrators.model_g import steady_state
 
@@ -25,7 +25,7 @@ DEFAULT_PARAMS = {
 }
 
 
-class FluidModelG(PDESolver):
+class FluidModelG(PDESolverDx):
     """
     Model G on a fluid medium
     """
