@@ -1,3 +1,4 @@
+import warnings
 import tensorflow as tf
 import numpy as np
 from pde_solver import PDESolver
@@ -36,9 +37,9 @@ class ModelG(PDESolver):
         self.params = params or DEFAULT_PARAMS
         self.source_functions = source_functions or {}
 
-        self.concentration_G = tf.constant(concentration_G, dtype="float64")
-        self.concentration_X = tf.constant(concentration_X, dtype="float64")
-        self.concentration_Y = tf.constant(concentration_Y, dtype="float64")
+        self.G = tf.constant(concentration_G, dtype="float64")
+        self.X = tf.constant(concentration_X, dtype="float64")
+        self.Y = tf.constant(concentration_Y, dtype="float64")
 
         if self.dims == 1:
             omega2 = self.omega_x**2
@@ -72,22 +73,22 @@ class ModelG(PDESolver):
         self.reaction_integrator = tf.function(reaction_integrator_curried)
 
     def step(self):
-        values = self.diffusion_integrator(self.concentration_G, self.concentration_X, self.concentration_Y)
-        self.concentration_G, self.concentration_X, self.concentration_Y = values
-        values = self.reaction_integrator(self.concentration_G, self.concentration_X, self.concentration_Y)
-        self.concentration_G, self.concentration_X, self.concentration_Y = values
+        values = self.diffusion_integrator(self.G, self.X, self.Y)
+        self.G, self.X, self.Y = values
+        values = self.reaction_integrator(self.G, self.X, self.Y)
+        self.G, self.X, self.Y = values
         zero = lambda t: 0
         source_G = self.source_functions.get('G', zero)(self.t)
         source_X = self.source_functions.get('X', zero)(self.t)
         source_Y = self.source_functions.get('Y', zero)(self.t)
-        self.concentration_G += self.dt * source_G
-        self.concentration_X += self.dt * source_X
-        self.concentration_Y += self.dt * source_Y
+        self.G += self.dt * source_G
+        self.X += self.dt * source_X
+        self.Y += self.dt * source_Y
         self.t += self.dt
 
     def numpy(self):
         return (
-            self.concentration_G.numpy(),
-            self.concentration_X.numpy(),
-            self.concentration_Y.numpy()
+            self.G.numpy(),
+            self.X.numpy(),
+            self.Y.numpy()
         )

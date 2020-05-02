@@ -11,6 +11,7 @@ try:
 except ImportError:
     from yaml import Loader
 
+from model_g import ModelG
 from fluid_model_g import FluidModelG
 from util import bl_noise
 
@@ -92,6 +93,63 @@ def nucleation_and_motion_in_G_gradient_fluid_2D(writer, args, R=16):
     #     min_Y = min(min_Y, tf.reduce_min(fluid_model_g.Y).numpy())
 
     # print(min_G, max_G, min_X, max_X, min_Y, max_Y)
+
+
+def charged_nucleation_in_2D(writer, args, R=30, D=25, weights=(0, -10, -8, 8)):
+    dx = 2*R / args.height
+    x = (np.arange(args.width) - args.width // 2) * dx
+    y = (np.arange(args.height) - args.height // 2) * dx
+    x, y = np.meshgrid(x, y, indexing='ij')
+
+    def source_G(t):
+        amount = np.exp(-0.5*(t-5)**2)
+        return (
+            np.exp(-0.5*((x-D)**2+y*y)) * weights[0] +
+            np.exp(-0.5*((x+D)**2+y*y)) * weights[1]
+        ) * amount
+
+    def source_X(t):
+        amount = np.exp(-0.5*(t-5)**2)
+        return (
+            np.exp(-0.5*((x-D)**2+y*y)) * weights[2] +
+            np.exp(-0.5*((x+D)**2+y*y)) * weights[3]
+        ) * amount
+
+    source_functions = {
+        'G': source_G,
+        'X': source_X,
+    }
+
+    noise_scale = 1e-4
+    model_g = ModelG(
+        bl_noise(x.shape) * noise_scale,
+        bl_noise(x.shape) * noise_scale,
+        bl_noise(x.shape) * noise_scale,
+        dx,
+        dt=args.dt,
+        params=args.model_params,
+        source_functions=source_functions,
+    )
+
+    print("Rendering 'Charged nucleation in 2D'")
+    print("Lattice constant dx = {}, time step dt = {}".format(model_g.dx, model_g.dt))
+    min_G = -4.672736908320116
+    max_G = 0.028719261862332906
+    min_X = -3.8935243721220334
+    max_X = 1.2854028081816122
+    min_Y = -0.7454193158963579
+    max_Y = 4.20524950766914
+    for n in progressbar.progressbar(range(args.num_frames)):
+        model_g.step()
+        if n % args.oversampling == 0:
+            rgb = [
+                6*(-model_g.G + max_G) / (max_G - min_G),
+                5*(model_g.Y - min_Y) / (max_Y - min_Y),
+                0.7*(model_g.X - min_X) / (max_X - min_X),
+            ]
+            zero_line = 1 - tf.exp(-600 * model_g.Y**2)
+            frame = make_video_frame([c * zero_line for c in rgb])
+            writer.append_data(frame)
 
 
 # TODO: Requires some work. Unstable like this.
@@ -181,6 +239,7 @@ def nucleation_3D(writer, args, R=20):
 if __name__ == '__main__':
     episodes = {
         'nucleation_and_motion_in_fluid_2D': nucleation_and_motion_in_G_gradient_fluid_2D,
+        'charged_nucleation_in_2D': charged_nucleation_in_2D,
     }
 
     parser = argparse.ArgumentParser(description='Render audio samples')
