@@ -1,0 +1,21 @@
+---
+episode: nucleation_and_motion_in_fluid_2D
+resolution: 240p
+video_duration: 20
+oversampling: 2
+simulation_duration: 100
+model_params:
+    A: 3.42
+    B: 13.5
+    k2: 1.0
+    k-2: 0.1
+    k5: 0.9
+    D_G: 1.0
+    D_X: 1.0
+    D_Y: 1.95
+    density_G: 2.0
+    density_X: 1.0
+    density_Y: 1.5
+    base-density: 35.0
+    viscosity: 0.4
+    speed-of-sound: 1.0

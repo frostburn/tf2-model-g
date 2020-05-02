@@ -5,6 +5,11 @@ import numpy as np
 import tensorflow as tf
 import progressbar
 import imageio
+import yaml
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
 
 from fluid_model_g import FluidModelG
 from util import bl_noise
@@ -32,24 +37,7 @@ def make_video_frame(rgb, indexing='ij'):
     return tf.cast(frame * 255, 'uint8').numpy()
 
 
-def nucleation_and_motion_in_G_gradient_2D(writer, args, R=16):
-    params = {
-        "A": 3.42,
-        "B": 13.5,
-        "k2": 1.0,
-        "k-2": 0.1,
-        "k5": 0.9,
-        "D_G": 1.0,
-        "D_X": 1.0,
-        "D_Y": 1.95,
-        "density_G": 2.0,
-        "density_X": 1.0,
-        "density_Y": 1.5,
-        "base-density": 35.0,
-        "viscosity": 0.4,
-        "speed-of-sound": 1.0,
-    }
-
+def nucleation_and_motion_in_G_gradient_fluid_2D(writer, args, R=16):
     dx = 2*R / args.height
     x = (np.arange(args.width) - args.width // 2) * dx
     y = (np.arange(args.height) - args.height // 2) * dx
@@ -73,7 +61,7 @@ def nucleation_and_motion_in_G_gradient_2D(writer, args, R=16):
         flow,
         dx,
         dt=args.dt,
-        params=params,
+        params=args.model_params,
         source_functions=source_functions,
     )
 
@@ -108,6 +96,7 @@ def nucleation_and_motion_in_G_gradient_2D(writer, args, R=16):
 
 # TODO: Requires some work. Unstable like this.
 def nucleation_3D(writer, args, R=20):
+    raise NotImplementedError("Needs some work")
     params = {
         "A": 3.4,
         "B": 13.5,
@@ -191,27 +180,52 @@ def nucleation_3D(writer, args, R=20):
 
 if __name__ == '__main__':
     episodes = {
-        'nucleation_and_motion': nucleation_and_motion_in_G_gradient_2D,
-        'nucleation': nucleation_3D,
+        'nucleation_and_motion_in_fluid_2D': nucleation_and_motion_in_G_gradient_fluid_2D,
     }
 
     parser = argparse.ArgumentParser(description='Render audio samples')
-    parser.add_argument('episode', choices=episodes.keys())
     parser.add_argument('outfile', type=str, help='Output file name')
-    parser.add_argument('--resolution', choices=RESOLUTIONS.keys(), help='Video and simulation grid resolution', default='240p')
-    # parser.add_argument('--width', type=int, help='Video and simulation grid width', metavar='W')
-    # parser.add_argument('--height', type=int, help='Video and simulation grid height', metavar='H')
-    parser.add_argument('--framerate', type=int, help='Video frame rate', default=24)
-    parser.add_argument('--oversampling', type=int, help='Add extra simulation time steps between video frames for stability', default=1)
-    parser.add_argument('--video-quality', type=int, help='Video quality factor', default=10)
-    parser.add_argument('--video-duration', type=float, help='Duration of video to render in seconds', default=1.0)
-    parser.add_argument('--simulation-duration', type=float, help='Amount of simulation to run', default=1.0)
+    parser.add_argument('--params', type=str, help='Parameter YAML file name')
+    parser.add_argument('--episode', choices=episodes.keys())
+    parser.add_argument('--resolution', choices=RESOLUTIONS.keys(), help='Video and simulation grid resolution')
+    parser.add_argument('--width', type=int, help='Video and simulation grid width', metavar='W')
+    parser.add_argument('--height', type=int, help='Video and simulation grid height', metavar='H')
+    parser.add_argument('--framerate', type=int, help='Video frame rate')
+    parser.add_argument('--oversampling', type=int, help='Add extra simulation time steps between video frames for stability')
+    parser.add_argument('--video-quality', type=int, help='Video quality factor')
+    parser.add_argument('--video-duration', type=float, help='Duration of video to render in seconds')
+    parser.add_argument('--simulation-duration', type=float, help='Amount of simulation to run')
     args = parser.parse_args()
+
+    args.model_params = {}
+    if args.params:
+        with open(args.params) as f:
+            params = yaml.load(f, Loader=Loader)
+            for key, value in params.items():
+                if not getattr(args, key):
+                    setattr(args, key, value)
+
+    if not args.episode:
+        raise ValueError("Missing episode argument. Must be present in either parameter YAML file or as a program argument.")
+
+    if not args.framerate:
+        args.framerate = 24
+    if not args.oversampling:
+        args.oversampling = 1
+    if not args.video_quality:
+        args.video_quality = 10
 
     writer = imageio.get_writer(args.outfile, fps=args.framerate, quality=args.video_quality, macro_block_size=1)
 
     # Compute derived parameters
-    args.width, args.height = RESOLUTIONS[args.resolution]
+    if args.resolution:
+        width, height = RESOLUTIONS[args.resolution]
+        if not args.width:
+            args.width = width
+        if not args.height:
+            args.height = height
+    if (not args.width) or (not args.height):
+        raise ValueError("Invalid or missing resolution")
     args.aspect = args.width / args.height
     args.num_frames = int(args.video_duration * args.oversampling * args.framerate)
     args.dt = args.simulation_duration / args.num_frames
