@@ -1,0 +1,15 @@
+---
+episode: soliton_in_g_well_2D
+resolution: 360p
+video_duration: 60
+oversampling: 20
+simulation_duration: 2000
+model_params:
+    A: 3.41
+    B: 12.6
+    k2: 1.0
+    k-2: 0.1
+    k5: 0.9
+    D_G: 1.0
+    D_X: 1.0
+    D_Y: 2.1

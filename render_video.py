@@ -152,6 +152,54 @@ def charged_nucleation_in_2D(writer, args, R=30, D=25, weights=(0, -10, -8, 8)):
             writer.append_data(frame)
 
 
+def soliton_in_g_well_2D(writer, args, R=25, D=15):
+    dx = 2*R / args.height
+    x = (np.arange(args.width) - args.width // 2) * dx
+    y = (np.arange(args.height) - args.height // 2) * dx
+    x, y = np.meshgrid(x, y, indexing='ij')
+
+    def source_G(t):
+        nucleator = -np.exp(-0.5*(t-5)**2)
+        potential = 0.015 * (np.tanh(t-25) + 1)
+        u = x / R
+        return (
+            np.exp(-0.5*((x-D)**2+y*y)) * nucleator +
+            (u*u - 1) * potential
+        )
+
+    source_functions = {
+        'G': source_G,
+    }
+
+    noise_scale = 1e-4
+    model_g = ModelG(
+        bl_noise(x.shape) * noise_scale,
+        bl_noise(x.shape) * noise_scale,
+        bl_noise(x.shape) * noise_scale,
+        dx,
+        dt=args.dt,
+        params=args.model_params,
+        source_functions=source_functions,
+    )
+
+    print("Rendering 'Soliton in G-well in 2D'")
+    print("Lattice constant dx = {}, time step dt = {}".format(model_g.dx, model_g.dt))
+    G_scale = 0.02
+    X_scale = 0.25
+    Y_scale = 0.5
+    for n in progressbar.progressbar(range(args.num_frames)):
+        model_g.step()
+        if n % args.oversampling == 0:
+            rgb = [
+                (G_scale*0.5 - model_g.G) / G_scale,
+                (model_g.Y - Y_scale*0.5) / Y_scale,
+                (model_g.X - X_scale*0.5) / X_scale,
+            ]
+            zero_line = 1 - tf.exp(-600 * model_g.Y**2)
+            frame = make_video_frame([c * zero_line for c in rgb])
+            writer.append_data(frame)
+
+
 # TODO: Requires some work. Unstable like this.
 def nucleation_3D(writer, args, R=20):
     raise NotImplementedError("Needs some work")
@@ -240,6 +288,7 @@ if __name__ == '__main__':
     episodes = {
         'nucleation_and_motion_in_fluid_2D': nucleation_and_motion_in_G_gradient_fluid_2D,
         'charged_nucleation_in_2D': charged_nucleation_in_2D,
+        'soliton_in_g_well_2D': soliton_in_g_well_2D,
     }
 
     parser = argparse.ArgumentParser(description='Render audio samples')
